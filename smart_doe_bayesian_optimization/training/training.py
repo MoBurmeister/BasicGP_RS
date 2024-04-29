@@ -8,8 +8,9 @@ from gpytorch.models import ExactGP
 
 # TODO: do I need different kind of training functions for the model? Especially for single/multi input etc.
 # TODO: what about batching and batch sizes?
-# TODO: adjust training messages
+# TODO: adjust training messages -> to get the lengthscale is not possible 
 # TODO: what about maximization/minimization? Relevant here? -> probably relevant in the mll?
+# TODO: implement stopping criteria: Either when reaching no significant loss improvement or whne lengthscale/noise is converging -> Gaussian processes not so prone to overfitting
 
 def training_gp_model(gp_model: ExactGP, 
                       optimizer: Union[Adam, SGD], 
@@ -48,7 +49,7 @@ def training_gp_model(gp_model: ExactGP,
         if (epoch + 1) % 10 == 0:
             print(
                 f"Epoch {epoch+1:>3}/{num_epochs} - Loss: {loss.item():>4.3f} "
-                f"lengthscale: {gp_model.covar_module.base_kernel.lengthscale.item():>4.3f} "
+                #f"lengthscale: {gp_model.covar_module.base_kernel.lengthscale.item():>4.3f} "
                 f"noise: {gp_model.likelihood.noise.item():>4.3f}"
             )
         optimizer.step()

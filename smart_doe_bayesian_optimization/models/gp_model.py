@@ -7,6 +7,7 @@ from gpytorch.likelihoods import Likelihood
 import torch
 
 # TODO: are the Kernel and Likelihood variable types okay like that? should this be instead something else? -> Union
+# TODO: checking function, if everything is setup correctly
 
 class BaseGPModel():
     def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, optimizer_kwargs: dict=None):
@@ -23,6 +24,10 @@ class BaseGPModel():
         self.mll = self.mll.to(device=device, dtype=dtype)
 
     def train(self,num_epochs):
+        # TODO: Unnecessary reassignment of the gp_model -> since it is already modified in the training function (self.gp_model is handed over)
         self.gp_model = training.training_gp_model(gp_model=self.gp_model, optimizer=self.optimizer, mll=self.mll, train_X=self.train_X, train_Y=self.train_Y, num_epochs=num_epochs)
+
+    def visualize_trained_model(self, )
+        
     
     #def optimizer(self, )
