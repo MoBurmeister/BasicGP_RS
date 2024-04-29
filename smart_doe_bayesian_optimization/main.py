@@ -33,6 +33,13 @@ gp_likelihood = LikelihoodFactory.create_likelihood(
     noise_constraint = GreaterThan(1e-4)
 )
 
-first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood)
+first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, scaling_dic=dataset_xsinx.scaling_dic)
 
-first_gp.train(num_epochs=100)
+scaled_X, scaled_Y = first_gp.reverse_scale()
+
+print(dataset_xsinx.unscaled_data[0])
+print(dataset_xsinx.unscaled_data[1])
+
+print(scaled_X)
+
+#first_gp.train(num_epochs=100)
