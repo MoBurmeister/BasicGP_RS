@@ -10,4 +10,5 @@ class GPVisualizer:
     @staticmethod
     def visualize_model_pdp(gp_model: ExactGP, train_X: torch.tensor, train_Y: torch.tensor):
         #pdp for partial dependence plots -> show one variable while averaging the others
+        pass
 

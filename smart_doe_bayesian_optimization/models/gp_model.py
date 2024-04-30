@@ -11,12 +11,12 @@ from typing import Dict, Optional
 # TODO: checking function, if everything is setup correctly
 
 class BaseGPModel():
-    def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, scaling_dic: Optional[Dict] = None , optimizer_kwargs: dict=None):
+    def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, scaling_dict: Optional[Dict] = None , optimizer_kwargs: dict=None):
         self.train_X = train_X
         self.train_Y = train_Y
         self.kernel = kernel
         self.likelihood = likelihood
-        self.scaling_dic = scaling_dic
+        self.scaling_dict = scaling_dict
         self.gp_model = GPModelFactory.create_model(model_type, train_X, train_Y, kernel, likelihood)
         self.mll = MLLFactory.create_mll(type=mll_type, model=self.gp_model, likelihood=self.likelihood)
         self.optimizer = OptimizerFactory.create_optimizer(type=optimizer_type, model_parameters=self.gp_model.parameters(), **(optimizer_kwargs or {}))
@@ -27,36 +27,24 @@ class BaseGPModel():
 
     def reverse_scale(self):
         """
-        Reverse scales the train_X and train_Y attributes based on the scaling information stored in scaling_dic.
+        Reverse scales the train_X and train_Y attributes based on the scaling information stored in scaling_dict.
         Returns the reverse scaled train_X and train_Y tensors without modifying the original class attributes.
         """
-        # Check if scaling_dic is not None and not empty
-        if not self.scaling_dic:
+        if not self.scaling_dict:
+            print(f"ATTENTION: The Scaling dic is empty, just returning the inital data")
             return self.train_X.clone(), self.train_Y.clone()
 
-        # Reverse scaling for train_X
-        if 'standard' in self.scaling_dic:
-            mean_x = self.scaling_dic['standard']['mean']
-            std_x = self.scaling_dic['standard']['std']
-            reversed_train_X = (self.train_X * std_x) + mean_x
-        elif 'min_max' in self.scaling_dic:
-            min_x = self.scaling_dic['min_max']['min']
-            max_x = self.scaling_dic['min_max']['max']
-            reversed_train_X = (self.train_X * (max_x - min_x)) + min_x
-        else:
-            reversed_train_X = self.train_X.clone()
+        # Reverse scaling for inputs
+        scaling_info_inputs = self.scaling_dict['inputs']
+        mean_inputs = scaling_info_inputs['mean']
+        std_inputs = scaling_info_inputs['std']
+        reversed_train_X = (self.train_X * std_inputs) + mean_inputs
 
-        # Reverse scaling for train_Y
-        if 'standard' in self.scaling_dic:
-            mean_y = self.scaling_dic['standard']['mean']
-            std_y = self.scaling_dic['standard']['std']
-            reversed_train_Y = (self.train_Y * std_y) + mean_y
-        elif 'min_max' in self.scaling_dic:
-            min_y = self.scaling_dic['min_max']['min']
-            max_y = self.scaling_dic['min_max']['max']
-            reversed_train_Y = (self.train_Y * (max_y - min_y)) + min_y
-        else:
-            reversed_train_Y = self.train_Y.clone()
+        # Reverse scaling for outputs
+        scaling_info_outputs = self.scaling_dict['outputs']
+        mean_outputs = scaling_info_outputs['mean']
+        std_outputs = scaling_info_outputs['std']
+        reversed_train_Y = (self.train_Y * std_outputs) + mean_outputs
 
         return reversed_train_X, reversed_train_Y
         

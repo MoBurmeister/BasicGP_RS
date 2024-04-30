@@ -1,9 +1,6 @@
 import torch
-
-
 '''
 The inputs-vector is organized in a torch.Size([n, d]) fashion:
-
 -n: number of datapoints
 -d: number of dimensions.
 
@@ -17,6 +14,8 @@ tensor([[  1.3362,   7.6596, 130.9058],
         [  3.8676,   5.4702, 156.1881],
         [  4.5060,   6.5246, 162.0561]])
 torch.Size([5, 3])
+
+This also holds true for the output, it needs to be in the shape of ([n, d])
 
 '''
 
@@ -37,7 +36,7 @@ class FunctionFactory:
 
         FunctionFactory.check_dimensions(inputs=inputs, expected_shape=expected_shape)
 
-        return inputs * torch.sin(inputs)
+        return inputs * torch.sin(inputs), expected_shape
     
     @staticmethod
     def sum_of_sines(inputs):
@@ -45,9 +44,15 @@ class FunctionFactory:
         Expects inputs tensor of shape [n, 3], where n is any number of data points.
         Applies sine to each dimension and sums the results.
         """
-        FunctionFactory.check_dimensions(inputs, 3)
+        #3-dimensional input
+        expected_input_shape = 3
+        #1-dimensional output
+        expected_output_shape = 1
+        #here: three input ranges go into 3 sinuses (3-dim input) and then get add up to one-dim output
+
+        FunctionFactory.check_dimensions(inputs, expected_input_shape)
         result = torch.sin(inputs)
-        return result.sum(dim=1)
+        return result.sum(dim=1, keepdim=True), expected_output_shape
     
     @staticmethod
     def multi_inputs(inputs):
