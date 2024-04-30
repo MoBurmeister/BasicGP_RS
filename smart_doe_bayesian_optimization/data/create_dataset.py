@@ -12,7 +12,7 @@ class DatasetManager:
         self.dataset_func = None
         self.unscaled_data = None
         self.scaled_data = None
-        self.scaling_dic = {}
+        self.scaling_dict = {}
 
     def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, standardize: bool = True, min_max_scaling: bool = False, **kwargs):
         
@@ -25,54 +25,62 @@ class DatasetManager:
         if sampling_method == "random":
             for key, range_val in kwargs.items():
                 inputs.append(torch.rand(num_datapoints) * (range_val[1] - range_val[0]) + range_val[0])
+            inputs = torch.stack(inputs, dim=1)
         elif sampling_method == "grid":
-            grids = [torch.linspace(*range_val, steps=int(num_datapoints ** (1 / len(kwargs))))
-                     for key, range_val in kwargs.items()]
-            mesh = torch.meshgrid(*grids, indexing='ij')
-            inputs = [item.flatten() for item in mesh]
-
-        inputs = torch.stack(inputs, dim=1)
-
-        if noise_level > 0:
-            inputs = self.add_noise(inputs=inputs, noise_level=noise_level)
+            for key, range_val in kwargs.items():
+                inputs.append(torch.linspace(range_val[0], range_val[1], steps=num_datapoints))
+            inputs = torch.stack(inputs, dim=1)
 
         inputs = inputs.to(self.dtype)
 
         outputs = dataset_func(inputs)
+
+        # TODO: check for matching of input and output, otherwise do not proceed here! -> output must have as many datapoints as the input, but not same dimension
+
+        if noise_level > 0:
+            outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
+
         outputs = outputs.to(self.dtype)
 
         self.unscaled_data = (inputs.clone(), outputs.clone())
 
         if standardize:
-            inputs = self.data_scaling(inputs)
-            outputs = self.data_scaling(outputs)
+            inputs, outputs = self.data_scaling(inputs, outputs)
         if min_max_scaling:
-            inputs = self.min_max_scaling(inputs)
-            outputs = self.min_max_scaling(outputs)
+            print("not implemented yet")
+    
+        print(f"Scaling dict: {self.scaling_dict}")
 
         self.scaled_data = (inputs, outputs)
 
-    def add_noise(self, inputs: torch.Tensor, noise_level: float):
-        """ Adds Gaussian noise to input data.
+    def add_noise(self, outputs: torch.Tensor, noise_level: float):
+        """ Adds Gaussian noise to output data.
 
-        :param inputs: Input data tensor.
+        :param outputs: Input data tensor.
         :param noise_level: Standard deviation of Gaussian noise to add.
-        :return: Inputs with noise added.
+        :return: outputs with noise added.
         """
-        return inputs + noise_level * torch.randn_like(inputs)
+        return outputs + noise_level * torch.randn_like(outputs)
     
-    def data_scaling(self, inputs:torch.Tensor):
-        mean = torch.mean(inputs, dim=0, keepdim=True)
-        std = torch.std(inputs, dim=0, keepdim=True)
-        self.scaling_dic['standard'] = {'mean': mean, 'std': std}
-        return (inputs - mean) / std
+    def data_scaling(self, inputs: torch.Tensor, outputs: torch.Tensor):
+        mean_inputs = torch.mean(inputs, dim=0, keepdim=True)
+        std_inputs = torch.std(inputs, dim=0, keepdim=True)
+        scaled_inputs = (inputs - mean_inputs) / std_inputs
+
+        mean_outputs = torch.mean(outputs, dim=0, keepdim=True)
+        std_outputs = torch.std(outputs, dim=0, keepdim=True)
+        scaled_outputs = (outputs - mean_outputs) / std_outputs
+
+        self.scaling_dict = {
+            'inputs': {'method': 'standardize', 'mean': mean_inputs, 'std': std_inputs},
+            'outputs': {'method': 'standardize', 'mean': mean_outputs, 'std': std_outputs}
+        }
+
+        return scaled_inputs, scaled_outputs
     
     def min_max_scaling(self, inputs: torch.Tensor):
-        """Scales the input tensor to the [0, 1] range."""
-        min_val = torch.min(inputs, dim=0, keepdim=True).values
-        max_val = torch.max(inputs, dim=0, keepdim=True).values
-        self.scaling_dic['min_max'] = {'min': min_val, 'max': max_val}
-        return (inputs - min_val) / (max_val - min_val)
+        print("min_max_scaling not implemented yet")
+        pass
     
     def transform_data(self):
         pass

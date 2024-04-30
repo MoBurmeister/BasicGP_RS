@@ -16,30 +16,41 @@ from models.optimizer_factory import OptimizerFactory
 xsinx = FunctionFactory
 
 dataset_xsinx = DatasetManager(dtype=torch.float64)
-dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=3, sampling_method="grid", noise_level=0, x_range=(0,5))
+dataset_xsinx.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0.1, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
 
-#Create a prior for the lengthscale
-lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
 
-# Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
-rbf_kernel = KernelFactory.create_kernel(
-    'RBF', 
-    ard_num_dims=1, 
-    lengthscale_prior=lengthscale_prior, 
-)
 
-gp_likelihood = LikelihoodFactory.create_likelihood(
-    'Gaussian',
-    noise_constraint = GreaterThan(1e-4)
-)
+# #Create a prior for the lengthscale
+# lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
 
-first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, scaling_dic=dataset_xsinx.scaling_dic)
+# # Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
+# rbf_kernel = KernelFactory.create_kernel(
+#     'RBF', 
+#     ard_num_dims=1, 
+#     lengthscale_prior=lengthscale_prior, 
+# )
 
-scaled_X, scaled_Y = first_gp.reverse_scale()
+# gp_likelihood = LikelihoodFactory.create_likelihood(
+#     'Gaussian',
+#     noise_constraint = GreaterThan(1e-4)
+# )
 
-print(dataset_xsinx.unscaled_data[0])
-print(dataset_xsinx.unscaled_data[1])
+# first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, scaling_dic=dataset_xsinx.scaling_dic)
 
-print(scaled_X)
+# scaled_X, scaled_Y = first_gp.reverse_scale()
 
-#first_gp.train(num_epochs=100)
+# print("second dict")
+# print(first_gp.scaling_dic)
+
+# print("unscaled ")
+# print(dataset_xsinx.unscaled_data[0])
+# print(dataset_xsinx.unscaled_data[1])
+
+# print("scaled")
+# print(dataset_xsinx.scaled_data[0])
+# print(dataset_xsinx.scaled_data[0])
+
+# print("rescaled")
+# print(scaled_X)
+
+# #first_gp.train(num_epochs=100)
