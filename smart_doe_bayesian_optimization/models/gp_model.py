@@ -9,6 +9,8 @@ from typing import Dict, Optional
 
 # TODO: are the Kernel and Likelihood variable types okay like that? should this be instead something else? -> Union
 # TODO: checking function, if everything is setup correctly
+# TODO: for the optimization iterations: it should be considered, that the train_X and train_Y data only should be updated, when the model is also updated for it. 
+#       -> avoid the case, that the state of the data (X and Y) is different from the model state -> will result in problems for the visualization script
 
 class BaseGPModel():
     def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, scaling_dict: Optional[Dict] = None , optimizer_kwargs: dict=None):
@@ -33,18 +35,34 @@ class BaseGPModel():
         if not self.scaling_dict:
             print(f"ATTENTION: The Scaling dic is empty, just returning the inital data")
             return self.train_X.clone(), self.train_Y.clone()
+    
+        # Initialize reverse scaled data with current scaled data
+        reversed_train_X = self.train_X.clone()
+        reversed_train_Y = self.train_Y.clone()
 
-        # Reverse scaling for inputs
-        scaling_info_inputs = self.scaling_dict['inputs']
-        mean_inputs = scaling_info_inputs['mean']
-        std_inputs = scaling_info_inputs['std']
-        reversed_train_X = (self.train_X * std_inputs) + mean_inputs
+        # Reverse scaling for train_X if applicable
+        if 'inputs' in self.scaling_dict:
+            input_params = self.scaling_dict['inputs']
+            method = input_params.get('method', 'default')
+            if method == 'normalize':
+                reversed_train_X = (reversed_train_X * (input_params['max'] - input_params['min'])) + input_params['min']
+            elif method == 'standardize':
+                reversed_train_X = (reversed_train_X * input_params['std']) + input_params['mean']
+            elif method == 'default':
+                # Data is unchanged, do nothing
+                pass
 
-        # Reverse scaling for outputs
-        scaling_info_outputs = self.scaling_dict['outputs']
-        mean_outputs = scaling_info_outputs['mean']
-        std_outputs = scaling_info_outputs['std']
-        reversed_train_Y = (self.train_Y * std_outputs) + mean_outputs
+        # Reverse scaling for train_Y if applicable
+        if 'outputs' in self.scaling_dict:
+            output_params = self.scaling_dict['outputs']
+            method = output_params.get('method', 'default')
+            if method == 'normalize':
+                reversed_train_Y = (reversed_train_Y * (output_params['max'] - output_params['min'])) + output_params['min']
+            elif method == 'standardize':
+                reversed_train_Y = (reversed_train_Y * output_params['std']) + output_params['mean']
+            elif method == 'default':
+                # Data is unchanged, do nothing
+                pass
 
         return reversed_train_X, reversed_train_Y
         
@@ -54,7 +72,7 @@ class BaseGPModel():
         self.gp_model = training.training_gp_model(gp_model=self.gp_model, optimizer=self.optimizer, mll=self.mll, train_X=self.train_X, train_Y=self.train_Y, num_epochs=num_epochs)
 
     def visualize_trained_model(self):
-        #fig_dic = 
+        #fig_dict_scaled, fig_dict_unscaled = 
         pass
         
     

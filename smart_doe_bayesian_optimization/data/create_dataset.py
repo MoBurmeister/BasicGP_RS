@@ -17,14 +17,12 @@ class DatasetManager:
         self.scaled_data = None
         self.scaling_dict = {}
 
-    def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, standardize: bool = True, min_max_scaling: bool = False, **kwargs):
+    def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, scaling_input: str ='normalize', scaling_output: str = 'standardize', **kwargs):
         
         self.num_datapoints = num_datapoints
 
         if sampling_method not in ['random', 'grid']:
             raise ValueError("Sampling method must be 'random' or 'grid'.")
-        if standardize and min_max_scaling:
-            raise ValueError("Specify only one type of scaling: standardize or min_max_scaling.")
         
         inputs = []
         if sampling_method == "random":
@@ -46,10 +44,8 @@ class DatasetManager:
 
         self.unscaled_data = (inputs.clone(), outputs.clone())
 
-        if standardize:
-            inputs, outputs = self.data_scaling(inputs, outputs)
-        if min_max_scaling:
-            print("not implemented yet")
+        inputs = self.apply_scaling(inputs, scaling_input, 'inputs')
+        outputs = self.apply_scaling(outputs, scaling_output, 'outputs')
 
         self.input_dim = sum(1 for key in kwargs if '_range' in key)
 
@@ -68,21 +64,46 @@ class DatasetManager:
         """
         return outputs + noise_level * torch.randn_like(outputs)
     
-    def data_scaling(self, inputs: torch.Tensor, outputs: torch.Tensor):
+    def apply_scaling(self, data: torch.Tensor, method: str, data_name: str):
+
+        if method == 'normalize':
+            return self.data_normalize(data, data_name)
+        elif method == 'standardize':
+            return self.standardize_data(data, data_name)
+        elif method == 'default':
+            self.scaling_dict[data_name] = {
+            'method': 'default',
+            'params': None
+            }
+            return data
+        else:
+            raise ValueError(f"{method} not implemented as a scaling function for {data_name}")
+    
+    def standardize_data(self, inputs: torch.Tensor, data_name: str):
         mean_inputs = torch.mean(inputs, dim=0, keepdim=True)
         std_inputs = torch.std(inputs, dim=0, keepdim=True)
         scaled_inputs = (inputs - mean_inputs) / std_inputs
 
-        mean_outputs = torch.mean(outputs, dim=0, keepdim=True)
-        std_outputs = torch.std(outputs, dim=0, keepdim=True)
-        scaled_outputs = (outputs - mean_outputs) / std_outputs
-
-        self.scaling_dict = {
-            'inputs': {'method': 'standardize', 'mean': mean_inputs, 'std': std_inputs},
-            'outputs': {'method': 'standardize', 'mean': mean_outputs, 'std': std_outputs}
+        self.scaling_dict[data_name] = {
+            'method': 'standardize', 
+            'mean': mean_inputs, 
+            'std': std_inputs
         }
 
-        return scaled_inputs, scaled_outputs
+        return scaled_inputs
+    
+    def data_normalize(self, inputs: torch.Tensor, data_name: str):
+        min_inputs = torch.min(inputs, dim=0, keepdim=True).values
+        max_inputs = torch.max(inputs, dim=0, keepdim=True).values
+        normalized_inputs = (inputs - min_inputs) / (max_inputs - min_inputs)
+
+        self.scaling_dict[data_name] = {
+            'method': 'normalize',
+            'min': min_inputs,
+            'max': max_inputs
+        }
+
+        return normalized_inputs
     
     def check_shape(self, inputs: torch.Tensor, outputs: torch.Tensor):
         """
@@ -122,11 +143,6 @@ class DatasetManager:
             raise ValueError(f"Input dimension mismatch: expected {self.input_dim}, got {inputs.shape[1]}")
         if outputs.shape[1] != self.output_dim:
             raise ValueError(f"Output dimension mismatch: expected {self.output_dim}, got {outputs.shape[1]}")
-    
-    
-    def min_max_scaling(self, inputs: torch.Tensor):
-        print("min_max_scaling not implemented yet")
-        pass
     
     def transform_data(self):
         pass
