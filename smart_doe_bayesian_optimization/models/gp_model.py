@@ -5,7 +5,7 @@ from models.mll_factory import MLLFactory
 from models.optimizer_factory import OptimizerFactory
 from gpytorch.likelihoods import Likelihood
 import torch
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 
 # TODO: are the Kernel and Likelihood variable types okay like that? should this be instead something else? -> Union
 # TODO: checking function, if everything is setup correctly
@@ -13,12 +13,13 @@ from typing import Dict, Optional
 #       -> avoid the case, that the state of the data (X and Y) is different from the model state -> will result in problems for the visualization script
 
 class BaseGPModel():
-    def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, scaling_dict: Optional[Dict] = None , optimizer_kwargs: dict=None):
+    def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, bounds_list: List[Tuple], scaling_dict: Optional[Dict] = None , optimizer_kwargs: dict=None):
         self.train_X = train_X
         self.train_Y = train_Y
         self.kernel = kernel
         self.likelihood = likelihood
         self.scaling_dict = scaling_dict
+        self.bounds_list = self.create_bounds_tensor(bounds_list=bounds_list)
         self.gp_model = GPModelFactory.create_model(model_type, train_X, train_Y, kernel, likelihood)
         self.mll = MLLFactory.create_mll(type=mll_type, model=self.gp_model, likelihood=self.likelihood)
         self.optimizer = OptimizerFactory.create_optimizer(type=optimizer_type, model_parameters=self.gp_model.parameters(), **(optimizer_kwargs or {}))
@@ -74,6 +75,22 @@ class BaseGPModel():
     def visualize_trained_model(self):
         #fig_dict_scaled, fig_dict_unscaled = 
         pass
-        
     
+    def create_bounds_tensor(self, bounds_list):
+        """
+        Convert a list of bounds into a 2 x d tensor format for Gaussian Process models.
+
+        Parameters:
+        - bounds_list (list of tuples): Each tuple contains (lower_bound, upper_bound) for a dimension.
+
+        Returns:
+        - torch.Tensor: A 2 x d tensor where the first row contains lower bounds and the second row contains upper bounds.
+        """
+        # Extract lower and upper bounds
+        lower_bounds = [lb for lb, ub in bounds_list]
+        upper_bounds = [ub for lb, ub in bounds_list]
+
+        # Create and return the tensor
+        return torch.tensor([lower_bounds, upper_bounds]) 
+
     #def optimizer(self, )

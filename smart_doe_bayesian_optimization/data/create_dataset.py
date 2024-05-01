@@ -3,6 +3,7 @@ from typing import Callable
 
 # TODO: implement transform data function
 # TODO: implement receive dataset from filepath function
+# TODO: Bounds integration, especially for the filepath acquiring of data
 # TODO: further testing, especially for multi input/output functions
 
 class DatasetManager:
@@ -16,6 +17,7 @@ class DatasetManager:
         self.unscaled_data = None
         self.scaled_data = None
         self.scaling_dict = {}
+        self.bounds_list = []
 
     def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, scaling_input: str ='normalize', scaling_output: str = 'standardize', **kwargs):
         
@@ -33,6 +35,8 @@ class DatasetManager:
             for key, range_val in kwargs.items():
                 inputs.append(torch.linspace(range_val[0], range_val[1], steps=num_datapoints))
             inputs = torch.stack(inputs, dim=1)
+
+        self.setbounds(**kwargs)
 
         inputs = inputs.to(self.dtype)
         outputs, self.output_dim = dataset_func(inputs)
@@ -55,6 +59,9 @@ class DatasetManager:
 
         self.scaled_data = (inputs, outputs)
 
+    def setbounds(self, **kwargs):
+        self.bounds_list = [value for key, value in kwargs.items() if "range" in key]
+
     def add_noise(self, outputs: torch.Tensor, noise_level: float):
         """ Adds Gaussian noise to output data.
 
@@ -71,9 +78,12 @@ class DatasetManager:
         elif method == 'standardize':
             return self.standardize_data(data, data_name)
         elif method == 'default':
+            min_values = torch.min(data, dim=0, keepdim=True).values
+            max_values = torch.max(data, dim=0, keepdim=True).values
             self.scaling_dict[data_name] = {
-            'method': 'default',
-            'params': None
+                'method': 'default',
+                'params': None,
+                'scaled_bounds': torch.stack((min_values, max_values), dim=0)  # Store the original bounds
             }
             return data
         else:
@@ -84,10 +94,15 @@ class DatasetManager:
         std_inputs = torch.std(inputs, dim=0, keepdim=True)
         scaled_inputs = (inputs - mean_inputs) / std_inputs
 
+        original_bounds = torch.tensor(self.bounds_list)
+        scaled_lower_bounds = (original_bounds[:, 0] - mean_inputs) / std_inputs
+        scaled_upper_bounds = (original_bounds[:, 1] - mean_inputs) / std_inputs
+
         self.scaling_dict[data_name] = {
-            'method': 'standardize', 
-            'mean': mean_inputs, 
-            'std': std_inputs
+            'method': 'standardize',
+            'mean': mean_inputs,
+            'std': std_inputs,
+            'scaled_bounds': torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
         }
 
         return scaled_inputs
@@ -100,7 +115,8 @@ class DatasetManager:
         self.scaling_dict[data_name] = {
             'method': 'normalize',
             'min': min_inputs,
-            'max': max_inputs
+            'max': max_inputs, 
+            'scaled_bounds': torch.tensor([[0.0] * inputs.shape[1], [1.0] * inputs.shape[1]])
         }
 
         return normalized_inputs

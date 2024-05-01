@@ -14,13 +14,6 @@ xsinx = FunctionFactory
 dataset_xsinx = DatasetManager(dtype=torch.float64)
 dataset_xsinx.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="random", noise_level=0.1, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6), x2_range=(10,20), x3_range=(100,200))
 
-print(dataset_xsinx.unscaled_data[0])
-print(dataset_xsinx.scaled_data[0])
-
-print(dataset_xsinx.scaling_dict)
-
-print("from model")
-
 #Create a prior for the lengthscale
 lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
 
@@ -38,8 +31,8 @@ gp_likelihood = LikelihoodFactory.create_likelihood(
     noise_constraint = GreaterThan(1e-4)
 )
 
-first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, scaling_dict=dataset_xsinx.scaling_dict)
+first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dataset_xsinx.scaling_dict)
 
-reverse_x, reverse_y = first_gp.reverse_scale()
-
-print(reverse_x)
+print(first_gp.scaling_dict['inputs']['scaled_bounds'])
+print(first_gp.scaling_dict['inputs']['scaled_bounds'].shape)
+print(first_gp.bounds_list)
