@@ -4,6 +4,7 @@ from gpytorch.kernels import Kernel
 from models.mll_factory import MLLFactory
 from models.optimizer_factory import OptimizerFactory
 from gpytorch.likelihoods import Likelihood
+from visualization.visualization import GPVisualizer
 import torch
 from typing import Dict, Optional, List, Tuple
 
@@ -11,6 +12,14 @@ from typing import Dict, Optional, List, Tuple
 # TODO: checking function, if everything is setup correctly
 # TODO: for the optimization iterations: it should be considered, that the train_X and train_Y data only should be updated, when the model is also updated for it. 
 #       -> avoid the case, that the state of the data (X and Y) is different from the model state -> will result in problems for the visualization script
+
+'''
+Shape of the bounds list: 
+torch.Size([2, d]) - ([min_x1, min_x2, ...],[max_x1, max_x2, ...])
+
+tensor([[  0,  10, 100],[  6,  20, 200]]) for [(0, 6), (10, 20), (100, 200)]
+
+'''
 
 class BaseGPModel():
     def __init__(self, model_type: str, mll_type: str, optimizer_type: str, kernel: Kernel, train_X: torch.Tensor, train_Y: torch.Tensor, likelihood: Likelihood, bounds_list: List[Tuple], scaling_dict: Optional[Dict] = None , optimizer_kwargs: dict=None):
@@ -72,9 +81,9 @@ class BaseGPModel():
         # TODO: Unnecessary reassignment of the gp_model -> since it is already modified in the training function (self.gp_model is handed over)
         self.gp_model = training.training_gp_model(gp_model=self.gp_model, optimizer=self.optimizer, mll=self.mll, train_X=self.train_X, train_Y=self.train_Y, num_epochs=num_epochs)
 
-    def visualize_trained_model(self):
+    def visualize_trained_model(self, rescale_vis: bool = False):
         #fig_dict_scaled, fig_dict_unscaled = 
-        pass
+        return GPVisualizer.visualize_model_pdp_with_uncertainty(self.gp_model, self.train_X, self.train_Y, scaling_dict=self.scaling_dict, rescale_vis=rescale_vis)
     
     def create_bounds_tensor(self, bounds_list):
         """

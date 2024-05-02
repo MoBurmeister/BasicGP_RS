@@ -83,40 +83,58 @@ class DatasetManager:
             self.scaling_dict[data_name] = {
                 'method': 'default',
                 'params': None,
-                'scaled_bounds': torch.stack((min_values, max_values), dim=0)  # Store the original bounds
+                'scaled_bounds': torch.stack((min_values, max_values), dim=0),
+                'original_bounds': torch.stack((min_values, max_values), dim=0) 
             }
             return data
         else:
             raise ValueError(f"{method} not implemented as a scaling function for {data_name}")
     
     def standardize_data(self, inputs: torch.Tensor, data_name: str):
-        mean_inputs = torch.mean(inputs, dim=0, keepdim=True)
-        std_inputs = torch.std(inputs, dim=0, keepdim=True)
+        mean_inputs = torch.mean(inputs, dim=0)
+        std_inputs = torch.std(inputs, dim=0)
         scaled_inputs = (inputs - mean_inputs) / std_inputs
 
-        original_bounds = torch.tensor(self.bounds_list)
-        scaled_lower_bounds = (original_bounds[:, 0] - mean_inputs) / std_inputs
-        scaled_upper_bounds = (original_bounds[:, 1] - mean_inputs) / std_inputs
+        if data_name == 'inputs':
+            original_bounds = torch.tensor(self.bounds_list).t()
+            scaled_lower_bounds = (original_bounds[0] - mean_inputs) / std_inputs
+            scaled_upper_bounds = (original_bounds[1] - mean_inputs) / std_inputs
+            scaled_bounds = torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
+        else:
+            scaled_bounds = None
+            original_bounds = None
+
 
         self.scaling_dict[data_name] = {
             'method': 'standardize',
-            'mean': mean_inputs,
-            'std': std_inputs,
-            'scaled_bounds': torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
+            'params': {'mean': mean_inputs, 'std': std_inputs},
+            'scaled_bounds': scaled_bounds,
+            'original_bounds': original_bounds
         }
 
         return scaled_inputs
     
+    #the min and max need to be the predefined range beginnings/ends!
+
     def data_normalize(self, inputs: torch.Tensor, data_name: str):
-        min_inputs = torch.min(inputs, dim=0, keepdim=True).values
-        max_inputs = torch.max(inputs, dim=0, keepdim=True).values
+        min_inputs = torch.tensor([bound[0] for bound in self.bounds_list])
+        max_inputs = torch.tensor([bound[1] for bound in self.bounds_list])
         normalized_inputs = (inputs - min_inputs) / (max_inputs - min_inputs)
+
+        if data_name == 'inputs':
+            original_bounds = torch.tensor(self.bounds_list).t()
+            scaled_lower_bounds = torch.zeros(inputs.shape[1])
+            scaled_upper_bounds = torch.ones(inputs.shape[1])
+            scaled_bounds = torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
+        else:
+            scaled_bounds = None
+            original_bounds = None
 
         self.scaling_dict[data_name] = {
             'method': 'normalize',
-            'min': min_inputs,
-            'max': max_inputs, 
-            'scaled_bounds': torch.tensor([[0.0] * inputs.shape[1], [1.0] * inputs.shape[1]])
+            'params': {'min': min_inputs, 'max': max_inputs},
+            'scaled_bounds': scaled_bounds,
+            'original_bounds': original_bounds
         }
 
         return normalized_inputs

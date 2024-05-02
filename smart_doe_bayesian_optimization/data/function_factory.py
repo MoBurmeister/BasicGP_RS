@@ -36,7 +36,10 @@ class FunctionFactory:
 
         FunctionFactory.check_dimensions(inputs=inputs, expected_shape=expected_shape)
 
-        return inputs * torch.sin(inputs), expected_shape
+        output = inputs * torch.sin(inputs)
+        output = output.view(-1, 1)  # Reshape the output to have shape [n, 1]
+
+        return output, expected_shape
     
     @staticmethod
     def sum_of_sines(inputs):

@@ -8,11 +8,12 @@ from data.create_dataset import DatasetManager
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 from models.optimizer_factory import OptimizerFactory
+import matplotlib.pyplot as plt
 
 xsinx = FunctionFactory
 
 dataset_xsinx = DatasetManager(dtype=torch.float64)
-dataset_xsinx.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="random", noise_level=0.1, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6), x2_range=(10,20), x3_range=(100,200))
+dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=5, sampling_method="grid", noise_level=0.1, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6))
 
 #Create a prior for the lengthscale
 lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
@@ -22,7 +23,7 @@ lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
 # Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
 rbf_kernel = KernelFactory.create_kernel(
     'RBF', 
-    ard_num_dims=3, 
+    ard_num_dims=1, 
     lengthscale_prior=lengthscale_prior, 
 )
 
@@ -33,6 +34,15 @@ gp_likelihood = LikelihoodFactory.create_likelihood(
 
 first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dataset_xsinx.scaling_dict)
 
-print(first_gp.scaling_dict['inputs']['scaled_bounds'])
-print(first_gp.scaling_dict['inputs']['scaled_bounds'].shape)
-print(first_gp.bounds_list)
+first_gp.train(num_epochs=1500)
+
+plots = first_gp.visualize_trained_model(rescale_vis=True)
+
+# fig = plots[0]
+
+# print(plots)
+
+# plt.figure(figsize=(8, 6))  # Optionally set the figure size
+# plt.show()
+
+
