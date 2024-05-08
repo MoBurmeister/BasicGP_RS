@@ -1,6 +1,6 @@
 import torch
 '''
-The inputs-vector is organized in a torch.Size([n, d]) fashion:
+The input-vector is organized in a torch.Size([n, d]) fashion:
 -n: number of datapoints
 -d: number of dimensions.
 

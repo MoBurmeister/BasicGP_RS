@@ -5,6 +5,7 @@ from typing import Callable
 # TODO: implement receive dataset from filepath function
 # TODO: Bounds integration, especially for the filepath acquiring of data
 # TODO: further testing, especially for multi input/output functions
+# TODO: what about more robust scaling methods? What about the scaling schedule?
 
 class DatasetManager:
     def __init__(self, dtype: torch.dtype, filepath: str = None) -> None:
@@ -92,9 +93,11 @@ class DatasetManager:
     
     def standardize_data(self, inputs: torch.Tensor, data_name: str):
         mean_inputs = torch.mean(inputs, dim=0)
+        # TODO: possible error: division by zero, if std is zero?
         std_inputs = torch.std(inputs, dim=0)
         scaled_inputs = (inputs - mean_inputs) / std_inputs
 
+        #if the data is not input data, there will be no bounds, because the function is unknown
         if data_name == 'inputs':
             original_bounds = torch.tensor(self.bounds_list).t()
             scaled_lower_bounds = (original_bounds[0] - mean_inputs) / std_inputs
@@ -114,7 +117,7 @@ class DatasetManager:
 
         return scaled_inputs
     
-    #the min and max need to be the predefined range beginnings/ends!
+    # TODO: the min and max need to be the predefined range beginnings/ends!
 
     def data_normalize(self, inputs: torch.Tensor, data_name: str):
         min_inputs = torch.tensor([bound[0] for bound in self.bounds_list])

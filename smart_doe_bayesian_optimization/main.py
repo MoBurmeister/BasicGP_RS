@@ -8,12 +8,16 @@ from data.create_dataset import DatasetManager
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 from models.optimizer_factory import OptimizerFactory
+from optimization.optimization import GPOptimizer
 import matplotlib.pyplot as plt
+from gpytorch.priors.torch_priors import GammaPrior
+
+from botorch import fit_gpytorch_mll
 
 xsinx = FunctionFactory
 
 dataset_xsinx = DatasetManager(dtype=torch.float64)
-dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=5, sampling_method="grid", noise_level=0.1, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6))
+dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=3, sampling_method="grid", noise_level=0, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6))
 
 #Create a prior for the lengthscale
 lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
@@ -22,27 +26,32 @@ lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
 
 # Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
 rbf_kernel = KernelFactory.create_kernel(
-    'RBF', 
-    ard_num_dims=1, 
-    lengthscale_prior=lengthscale_prior, 
+    'Matern', 
+    nu=2.5, 
+    lengthscale_prior=GammaPrior(3.0, 6.0)
 )
 
 gp_likelihood = LikelihoodFactory.create_likelihood(
     'Gaussian',
-    noise_constraint = GreaterThan(1e-4)
+    noise_constraint = GreaterThan(1e-5)
 )
 
-first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dataset_xsinx.scaling_dict)
+first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dataset_xsinx.scaling_dict, optimizer_kwargs={"lr":0.1})
 
-first_gp.train(num_epochs=1500)
+#plots = first_gp.visualize_trained_model(rescale_vis=True)
 
-plots = first_gp.visualize_trained_model(rescale_vis=True)
+first_gp.train(num_epochs=100)
 
-# fig = plots[0]
+new_data_point1 = torch.tensor([[2]], dtype=torch.float64)
+new_data_point2 = torch.tensor([[1.82]], dtype=torch.float64)
 
-# print(plots)
-
-# plt.figure(figsize=(8, 6))  # Optionally set the figure size
-# plt.show()
+first_gp.add_point_to_dataset(new_X=new_data_point1, new_Y=new_data_point2, rescale_all=True)
 
 
+# plots = first_gp.visualize_trained_model(rescale_vis=True)
+
+# gp_optimizer = GPOptimizer(first_gp)
+
+# gp_optimizer.optimization_loop(num_restarts=40, raw_samples=400, max_iterations=5)
+
+# plots = first_gp.visualize_trained_model(rescale_vis=True)

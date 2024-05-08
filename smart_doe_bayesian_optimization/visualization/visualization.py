@@ -5,11 +5,8 @@ import numpy as np
 import torch
 
 # TODO: maybe later fix the "left out" dimensions to the something else than the mean? - could be the mode or a specific reference point
-# TODO: Midpoints are for example also possibly feasible
 # TODO: Potential future implementation of Partial Dependence Plots (PDPs) with sampled mean or other representative point
 
-# TODO: IMPORTANT: Consider the scaling of the data!
-# TODO: IMPORTANT: Consider the different dimensions in the data!
 # TODO: add support for mulit output (y1, y2, ...)
 
 class GPVisualizer:
