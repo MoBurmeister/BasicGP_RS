@@ -3,13 +3,15 @@ from torch import Tensor
 from gpytorch.likelihoods import Likelihood
 from gpytorch.kernels import Kernel
 from typing import Type
+from botorch.models.transforms.outcome import OutcomeTransform, Standardize
+from botorch.models.transforms.input import InputTransform, Normalize
 
 # TODO: Add more models like Heteroscedastic
 # TODO: Do I need more initilization parameters for the SingleTaskGP? What about mean_module?
 
 class GPModelFactory:
     @staticmethod
-    def create_model(model_type: str, train_X: Tensor, train_Y: Tensor, kernel: Kernel, likelihood: Likelihood) -> SingleTaskGP:
+    def create_model(model_type: str, train_X: Tensor, train_Y: Tensor, kernel: Kernel, likelihood: Likelihood, outcome_transform: OutcomeTransform, input_transform: InputTransform) -> SingleTaskGP:
         """
         Factory method to create different types of Gaussian Process (GP) models.
         Parameters:
@@ -22,6 +24,7 @@ class GPModelFactory:
             SingleTaskGP: An instance of a Gaussian Process model.
         """
         if model_type == 'SingleTaskGP':
-            return SingleTaskGP(train_X=train_X, train_Y=train_Y, likelihood=likelihood, covar_module=kernel)
+            print(outcome_transform, input_transform)
+            return SingleTaskGP(train_X=train_X, train_Y=train_Y, likelihood=likelihood, covar_module=kernel, outcome_transform= outcome_transform, input_transform=input_transform)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")

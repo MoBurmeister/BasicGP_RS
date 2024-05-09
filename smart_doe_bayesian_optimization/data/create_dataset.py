@@ -7,6 +7,8 @@ from typing import Callable
 # TODO: further testing, especially for multi input/output functions
 # TODO: what about more robust scaling methods? What about the scaling schedule?
 
+# TODO: the **kwargs should be changed here into a range dict, which is a more clear way of initiating it
+
 class DatasetManager:
     def __init__(self, dtype: torch.dtype, filepath: str = None) -> None:
         self.filepath = filepath
@@ -16,11 +18,9 @@ class DatasetManager:
         self.num_datapoints = None
         self.dataset_func = None
         self.unscaled_data = None
-        self.scaled_data = None
-        self.scaling_dict = {}
         self.bounds_list = []
 
-    def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, scaling_input: str ='normalize', scaling_output: str = 'standardize', **kwargs):
+    def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, **kwargs):
         
         self.num_datapoints = num_datapoints
 
@@ -49,16 +49,11 @@ class DatasetManager:
 
         self.unscaled_data = (inputs.clone(), outputs.clone())
 
-        inputs = self.apply_scaling(inputs, scaling_input, 'inputs')
-        outputs = self.apply_scaling(outputs, scaling_output, 'outputs')
-
         self.input_dim = sum(1 for key in kwargs if '_range' in key)
 
         self.check_shape(inputs, outputs)
 
         self.check_dimensions(inputs, outputs)
-
-        self.scaled_data = (inputs, outputs)
 
     def setbounds(self, **kwargs):
         self.bounds_list = [value for key, value in kwargs.items() if "range" in key]
@@ -71,76 +66,6 @@ class DatasetManager:
         :return: outputs with noise added.
         """
         return outputs + noise_level * torch.randn_like(outputs)
-    
-    def apply_scaling(self, data: torch.Tensor, method: str, data_name: str):
-
-        if method == 'normalize':
-            return self.data_normalize(data, data_name)
-        elif method == 'standardize':
-            return self.standardize_data(data, data_name)
-        elif method == 'default':
-            min_values = torch.min(data, dim=0, keepdim=True).values
-            max_values = torch.max(data, dim=0, keepdim=True).values
-            self.scaling_dict[data_name] = {
-                'method': 'default',
-                'params': None,
-                'scaled_bounds': torch.stack((min_values, max_values), dim=0),
-                'original_bounds': torch.stack((min_values, max_values), dim=0) 
-            }
-            return data
-        else:
-            raise ValueError(f"{method} not implemented as a scaling function for {data_name}")
-    
-    def standardize_data(self, inputs: torch.Tensor, data_name: str):
-        mean_inputs = torch.mean(inputs, dim=0)
-        # TODO: possible error: division by zero, if std is zero?
-        std_inputs = torch.std(inputs, dim=0)
-        scaled_inputs = (inputs - mean_inputs) / std_inputs
-
-        #if the data is not input data, there will be no bounds, because the function is unknown
-        if data_name == 'inputs':
-            original_bounds = torch.tensor(self.bounds_list).t()
-            scaled_lower_bounds = (original_bounds[0] - mean_inputs) / std_inputs
-            scaled_upper_bounds = (original_bounds[1] - mean_inputs) / std_inputs
-            scaled_bounds = torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
-        else:
-            scaled_bounds = None
-            original_bounds = None
-
-
-        self.scaling_dict[data_name] = {
-            'method': 'standardize',
-            'params': {'mean': mean_inputs, 'std': std_inputs},
-            'scaled_bounds': scaled_bounds,
-            'original_bounds': original_bounds
-        }
-
-        return scaled_inputs
-    
-    # TODO: the min and max need to be the predefined range beginnings/ends!
-
-    def data_normalize(self, inputs: torch.Tensor, data_name: str):
-        min_inputs = torch.tensor([bound[0] for bound in self.bounds_list])
-        max_inputs = torch.tensor([bound[1] for bound in self.bounds_list])
-        normalized_inputs = (inputs - min_inputs) / (max_inputs - min_inputs)
-
-        if data_name == 'inputs':
-            original_bounds = torch.tensor(self.bounds_list).t()
-            scaled_lower_bounds = torch.zeros(inputs.shape[1])
-            scaled_upper_bounds = torch.ones(inputs.shape[1])
-            scaled_bounds = torch.stack((scaled_lower_bounds, scaled_upper_bounds), dim=0)
-        else:
-            scaled_bounds = None
-            original_bounds = None
-
-        self.scaling_dict[data_name] = {
-            'method': 'normalize',
-            'params': {'min': min_inputs, 'max': max_inputs},
-            'scaled_bounds': scaled_bounds,
-            'original_bounds': original_bounds
-        }
-
-        return normalized_inputs
     
     def check_shape(self, inputs: torch.Tensor, outputs: torch.Tensor):
         """
@@ -180,9 +105,6 @@ class DatasetManager:
             raise ValueError(f"Input dimension mismatch: expected {self.input_dim}, got {inputs.shape[1]}")
         if outputs.shape[1] != self.output_dim:
             raise ValueError(f"Output dimension mismatch: expected {self.output_dim}, got {outputs.shape[1]}")
-    
-    def transform_data(self):
-        pass
 
     def train_test_split(self):
         pass

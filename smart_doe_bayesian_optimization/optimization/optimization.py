@@ -33,11 +33,9 @@ class GPOptimizer():
         for iteration in range(max_iterations):
             print(iteration)
             candidate, acq_value = self.optimization_iteration(num_restarts=num_restarts, raw_samples=raw_samples)
-
-            rescaled_candidate = self.base_model.rescale_point(point=candidate, data_type='inputs')
         
             if manual_input:
-                print(f"Next suggested x-point: {rescaled_candidate.item():.4f}")
+                print(f"Next suggested x-point: {candidate.item():.4f}")
                 while True:
                     try:
                         next_y_value = float(input("Enter observation for given x: "))
@@ -49,16 +47,17 @@ class GPOptimizer():
                 raise ValueError(f"Automatic Input not supported yet in the optimization loop!")
             
 
-            next_y_value = self.convert_y_input(y_input=next_y_value)
+            next_y_value = self.convert_y_input_tensor(y_input=next_y_value)
             
             #check if retraining is necessary - then set flag accordingly - flag is handed over in dataset add function of the model!
             #where is the retraining added? This should be done after adding the next point - training function of the model can be used
 
+            self.base_model.add_point_to_dataset(new_X = candidate, new_Y = next_y_value)
+
+            self.base_model.train(num_epochs=100)
 
             # TODO: do i need the refine still, if the model is already trained before?
             # TODO: current guess: condition_ob_observation is not the correct way in handling the data here!
-
-            self.refine_gp_model()
         
 
     def optimization_iteration(self, num_restarts: int, raw_samples: int):
@@ -73,11 +72,8 @@ class GPOptimizer():
 
         return candidate, acq_value
 
-    def refine_gp_model(self):
-        # TODO: detaching the data is necessary?
-        self.base_model.gp_model.condition_on_observations(self.base_model.train_X, self.base_model.train_Y)
 
-    def convert_y_input(self, y_input: float):
+    def convert_y_input_tensor(self, y_input: float):
         tensor_value = torch.tensor([[y_input]], dtype=torch.float64)
         return tensor_value
 

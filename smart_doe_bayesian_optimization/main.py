@@ -17,7 +17,7 @@ from botorch import fit_gpytorch_mll
 xsinx = FunctionFactory
 
 dataset_xsinx = DatasetManager(dtype=torch.float64)
-dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=3, sampling_method="grid", noise_level=0, scaling_input='normalize', scaling_output='standardize', x1_range=(0,6))
+dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
 
 #Create a prior for the lengthscale
 lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
@@ -36,22 +36,19 @@ gp_likelihood = LikelihoodFactory.create_likelihood(
     noise_constraint = GreaterThan(1e-5)
 )
 
-first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.scaled_data[0], dataset_xsinx.scaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dataset_xsinx.scaling_dict, optimizer_kwargs={"lr":0.1})
+scaling_dict = {
+    'input': 'normalize',
+    'output': 'standardize'
+}
 
-#plots = first_gp.visualize_trained_model(rescale_vis=True)
+first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.unscaled_data[0], dataset_xsinx.unscaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=scaling_dict, optimizer_kwargs={"lr":0.1})
 
 first_gp.train(num_epochs=100)
 
-new_data_point1 = torch.tensor([[2]], dtype=torch.float64)
-new_data_point2 = torch.tensor([[1.82]], dtype=torch.float64)
+plots = first_gp.visualize_trained_model()
 
-first_gp.add_point_to_dataset(new_X=new_data_point1, new_Y=new_data_point2, rescale_all=True)
+gp_optimizer = GPOptimizer(first_gp)
 
+gp_optimizer.optimization_loop(num_restarts=40, raw_samples=400, max_iterations=1)
 
-# plots = first_gp.visualize_trained_model(rescale_vis=True)
-
-# gp_optimizer = GPOptimizer(first_gp)
-
-# gp_optimizer.optimization_loop(num_restarts=40, raw_samples=400, max_iterations=5)
-
-# plots = first_gp.visualize_trained_model(rescale_vis=True)
+plots = first_gp.visualize_trained_model()
