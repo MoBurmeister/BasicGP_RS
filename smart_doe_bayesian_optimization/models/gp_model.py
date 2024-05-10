@@ -55,6 +55,7 @@ class BaseGPModel():
         #the optimizer here is only necessary for the traditional torch training without full convergence
         self.optimizer_type = optimizer_type
         self.optimizer = None
+        self.model_plots_dict = {}
 
     def to(self, device, dtype):
         self.gp_model = self.gp_model.to(device=device, dtype=dtype)
@@ -100,7 +101,6 @@ class BaseGPModel():
             self.gp_model = GPModelFactory.create_model(model_type = self.gp_model_type, train_X=self.train_X, train_Y=self.train_Y, kernel=self.kernel, likelihood=self.likelihood, outcome_transform=self.outcome_transform, input_transform=self.input_transform)
             self.mll = MLLFactory.create_mll(type=self.mll_type, model=self.gp_model, likelihood=self.likelihood)
             fit_gpytorch_model(self.mll)
-            print('interrupt')
 
         else:
             print(f"Performing traditional training with {self.optimizer} as an optimizer, training over {num_epochs} epochs!")
@@ -109,7 +109,11 @@ class BaseGPModel():
             self.gp_model = training.training_gp_model(gp_model=self.gp_model, optimizer=self.optimizer, mll=self.mll, train_X=self.train_X, train_Y=self.train_Y, num_epochs=num_epochs)
 
     def visualize_trained_model(self):
-        return GPVisualizer.visualize_model_pdp_with_uncertainty(self.gp_model, self.train_X, self.train_Y, bounds_list=self.bounds_list, num_points=100)
+        self.model_plots_dict = GPVisualizer.visualize_model_pdp_with_uncertainty(self.gp_model, self.train_X, self.train_Y, bounds_list=self.bounds_list, num_points=100)
+        
+
+    def show_model_visualization(self):
+        pass
 
     # TODO: Implementation of adding multiple points to the dataset - or already possible?
 

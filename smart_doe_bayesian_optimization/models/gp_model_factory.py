@@ -24,7 +24,6 @@ class GPModelFactory:
             SingleTaskGP: An instance of a Gaussian Process model.
         """
         if model_type == 'SingleTaskGP':
-            print(outcome_transform, input_transform)
             return SingleTaskGP(train_X=train_X, train_Y=train_Y, likelihood=likelihood, covar_module=kernel, outcome_transform= outcome_transform, input_transform=input_transform)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")

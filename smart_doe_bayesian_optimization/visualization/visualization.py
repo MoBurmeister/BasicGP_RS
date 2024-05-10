@@ -36,7 +36,6 @@ class GPVisualizer:
                 mean = posterior.mean.detach().numpy()
                 lower, upper = posterior.mvn.confidence_region()
 
-
             # Plotting
             fig, ax = plt.subplots()
             ax.plot(x_range, mean, label='Predictive Mean')
@@ -48,9 +47,11 @@ class GPVisualizer:
             ax.set_ylabel('Output')
             ax.set_title(f'GP Model Visualization for Input Dimension {dim+1}')
 
-            plt.show()
-
             # Store plot
-            plots[f'dim_{dim+1}'] = fig
+            plots[f'dim_{dim+1}'] = {
+                'plot': fig,
+                'range': (min_val.item(), max_val.item()),
+                'mean': means[dim].item()
+            }
 
         return plots

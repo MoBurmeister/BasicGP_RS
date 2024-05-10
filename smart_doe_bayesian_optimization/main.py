@@ -45,10 +45,16 @@ first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf
 
 first_gp.train(num_epochs=100)
 
-plots = first_gp.visualize_trained_model()
+first_gp.visualize_trained_model()
 
-gp_optimizer = GPOptimizer(first_gp)
+gp_optimizer = GPOptimizer(base_model=first_gp, acq_func_type="LogExp_Improvement", is_maximization=True)
 
 gp_optimizer.optimization_loop(num_restarts=40, raw_samples=400, max_iterations=1)
 
-plots = first_gp.visualize_trained_model()
+first_gp.visualize_trained_model()
+
+gp_optimizer.plot_acq_func(num_points=100)
+
+plot = gp_optimizer.acq_func_plot_dict.get(0)
+
+plt.show()
