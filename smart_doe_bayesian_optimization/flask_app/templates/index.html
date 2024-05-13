@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Design of Experiments with Artificial Intelligence</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Smart Design of Experiments with Artificial Intelligence</h1>
+    <div class="container">
+        <div class="left">
+            <h2>Gaussian Process Model</h2>
+            <div class="image-placeholder">
+                <img src="{{ url_for('static', filename='images/trained_model_fig.png') }}" alt="" class="image">
+            </div>
+            <table id="data-table">
+                <tr>
+                    <td>Next Process Parameter Setting:</td>
+                    <td>{{ next_display_value }}</td>
+                </tr>
+            </table>
+            
+        </div>
+        <div class="right">
+            <h2>Acquisition Function</h2>
+            <div class="image-placeholder">
+                <img src="{{ url_for('static', filename='images/acq_function_fig.png') }}" alt="" class="image">
+            </div>
+            <div style="display: flex;">
+                <form action="{{ url_for('start_doe') }}" method="post">
+                    <button class="button1">Initialize Smart DoE</button>
+                </form>
+                <form action="{{ url_for('start_optimization') }}" method="post">
+                    <button class="button2">Start Optimization</button>
+                </form>
+            </div>
+            <div style="display: flex;">
+                <form action="{{ url_for('update_next_y_value') }}" method="post">
+                    <input type="text" name="next_y_value" placeholder= "Enter Value">
+                </form>
+                <form action="{{ url_for('get_next_optimization_iteration_route') }}" method="post">
+                    <button class="button3" type="submit">Enter Value Into AI Model</button>
+                </form>
+            </div>            
+        </div>
+    </div>
+</body>
+</html>

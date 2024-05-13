@@ -38,8 +38,6 @@ class GPOptimizer():
         
         for iteration in range(max_iterations):
             candidate, acq_value = self.optimization_iteration(num_restarts=num_restarts, raw_samples=raw_samples)
-
-            self.acq_func_values.append(candidate.item())
         
             if manual_input:
                 print(f"Next suggested x-point: {candidate.item():.4f}")
@@ -78,6 +76,8 @@ class GPOptimizer():
             num_restarts=num_restarts, 
             raw_samples=raw_samples
         )
+
+        self.acq_func_values.append(candidate.item())
 
         return candidate, acq_value
 

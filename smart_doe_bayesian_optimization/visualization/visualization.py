@@ -1,5 +1,7 @@
 from gpytorch.models import ExactGP
 from typing import Dict
+import matplotlib
+matplotlib.use('Agg')  # Use the non-interactive backend 'Agg'
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
