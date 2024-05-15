@@ -1,0 +1,161 @@
+:root {
+    --main-btn-color: #4CAF50;
+    --secondary-btn-color: #f44336;
+}
+
+body {
+    font-family: Arial, sans-serif; /* Change the font to Arial */
+}
+
+h1 {
+    font-size: 30px;
+    text-align: center;
+    background-color: #00957E; /* Set the background color to blue */
+    color: #ffffff; /* Set the text color to white */
+    font-weight: bold; /* Make the text bold */
+    border-radius: 10px; /* Create rounded edges */
+    padding: 20px; /* Add more space around the text */
+    max-width: 80%; /* Increase the width of the h1 element */
+    margin: auto; /* Center the h1 element */
+    margin-bottom: 10px; /* Add some space below the h1 element */
+    margin-top: 30px; /* Add some space above the h1 element */
+}
+
+.container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-direction: row;
+}
+.left{
+    width: 700px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
+    margin-left: auto;
+    margin-right: auto;
+}
+.right{
+    width: 700px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: column;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+button {
+    background-color: var(--main-btn-color); /* Green */
+    align-self: flex-start;
+    color: white; /* Text color */
+    margin: 5px;
+    padding: 17px 24px; /* Increase padding to make the button bigger */
+    border: none; /* Remove the default button border */
+    border-radius: 8px; /* Add rounded corners */
+    box-shadow: none; /* Remove any box shadow effect */
+    text-decoration: none; /* Remove any text decoration */
+    font-size: 24px; /* Adjust the font size */
+    font-weight: bold; /* Make the text bold */ 
+}
+
+.button1 {
+    background-color: #00957E;
+    margin-top: 15px;
+    margin-right: 80px;
+    margin-bottom: 30px;
+    /* other styles for button1 */
+}
+
+.button2 {
+    background-color: #00957E;
+    margin-top: 15px;
+    /* other styles for button2 */
+}
+
+.button1:active, .button2:active {
+    transform: scale(0.95); /* Slightly reduce the size of the button */
+    background-color: #444; /* Change the background color */
+}
+
+.button3 {
+    background-color: #144466;
+    width: 400px;
+    /* other styles for button2 */
+}
+.image-placeholder {
+    width: 100%; /* Adjust as needed */
+    height: 510px; /* Adjust as needed */
+    background-color: #ADADAD; /* Placeholder background */
+    border-radius: 10px;
+    position: relative; /* Establish this as a positioning context */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* Ensure nothing spills outside */
+}
+
+.image {
+    border-radius: 10px;
+}
+
+h2{
+    font-size: 25px;
+    background-color: #144466;
+    color: #ffffff;
+    border-radius: 10px; /* Create rounded edges */
+    padding: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+    text-align: center;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+form {
+    align-self: flex-start;
+}
+
+input[type="text"] {
+    width: 70%; /* Adjust the width of the input field */
+    margin: 5px;
+    height: 52px;
+    border:#00957E 4px solid; /* Add a border */
+    border-radius: 8px;
+    box-shadow: 0 0 15px 4px rgba(0,0,0,0.06);
+    background: #ffffff;
+    transition: 0.3s;
+    font-size: 24px; /* Reduced font size */
+    font-weight: bold;
+    text-align: center;
+}
+
+#data-table {
+    width: 100%; /* Use the full width of the parent container */
+    border-collapse: separate; /* Collapse borders */
+    margin-top: 30px; /* Add some margin */
+    border-spacing: 15px;
+}
+
+#data-table td, #data-table th {
+    border-radius: 10px; /* Create rounded edges */
+    font-size: 24px; /* Adjust the font size */;
+    padding: 15px; /* Add some padding */
+    border: #00957E 4px solid; /* Add a border */
+    background-color: #ffffff;
+    font-weight: bold;
+    text-align: center;
+}
+
+#data-table th {
+    border-radius: 10px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: center;
+    background-color: #4CAF50; /* Add a background color to the headers */
+    color: rgb(187, 4, 4); /* Change the header text color */
+}
+#data-table td:first-child, #data-table th:first-child {
+    width: 70%; /* Adjust this value to your preference */
+}
