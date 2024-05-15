@@ -15,7 +15,8 @@ def matplotlib_to_png(plot, filename, path, format='png'):
     Returns:
     - None
     """
-
+    print(f"PATH: {path}")
+    
     full_path = os.path.join(path, filename)
 
     plot.savefig(full_path, format=format)
