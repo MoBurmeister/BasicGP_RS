@@ -53,7 +53,7 @@ def setup_first_model():
 
     model_fig = first_gp.model_plots_dict['dim_1']['plot']    
 
-    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'flask_app\static\images')
+    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
     
     return first_gp
 
@@ -68,7 +68,7 @@ def setup_optimization_loop(first_gp: BaseGPModel):
 
     acq_fig = gp_optimizer.acq_func_plot_dict["Dimension 1"]
 
-    matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'flask_app\static\images')
+    matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     return gp_optimizer, next_value
 
@@ -89,13 +89,13 @@ def get_next_optimization_iteration(optimizer: GPOptimizer, input_value: float, 
 
     model_fig = optimizer.base_model.model_plots_dict['dim_1']['plot']    
 
-    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'flask_app\static\images')
+    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     optimizer.plot_acq_func(num_points=100)
 
     acq_fig = optimizer.acq_func_plot_dict["Dimension 1"]
 
-    matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'flask_app\static\images')
+    matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     next_value, acq_value = optimizer.optimization_iteration(num_restarts=num_restarts, raw_samples=raw_samples)
 
