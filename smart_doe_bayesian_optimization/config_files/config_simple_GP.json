@@ -1,0 +1,39 @@
+{
+    "kernel_config":{
+        "kernel_type": "Matern",
+        "kernel_params":{
+            "nu": 2.5,
+            "lengthscale_prior":{
+                "lengthscale_prior_type": "GammaPrior",
+                "min_val": 3.0,
+                "max_val": 6.0
+            }
+        }
+    },
+
+    "likelihood_config":{
+        "likelihood_type": "Gaussian",
+        "likelihood_params":{
+            "noise_constraints":{
+                "noise_constraints_type": "GreaterThan",
+                "min_val": 1e-6 
+            }
+        }
+    },
+
+    "scaling_config":{
+        "input": "normalize",
+        "output": "standardize"
+    },
+
+    "gp_model_config":{
+        "model_type": "SingleTaskGP", 
+        "mll_type": "ExactMarginalLogLikelihood"
+    },
+
+    "gp_optimizer_config":{
+        "acq_func_type": "LogExp_Improvement",
+        "is_maximization": true
+    }
+
+}

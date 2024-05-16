@@ -23,11 +23,6 @@ def setup_first_model():
     dataset_xsinx = DatasetManager(dtype=torch.float64)
     dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
 
-    #Create a prior for the lengthscale
-    lengthscale_prior = NormalPrior(loc=1.0, scale=0.1)
-
-    # TODO: How to check for the ard_num_dims? Where to setup and ensure correct running?
-
     # Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
     rbf_kernel = KernelFactory.create_kernel(
         'Matern', 
@@ -45,7 +40,7 @@ def setup_first_model():
         'output': 'standardize'
     }
 
-    first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", "adam", rbf_kernel, dataset_xsinx.unscaled_data[0], dataset_xsinx.unscaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=scaling_dict, optimizer_kwargs={"lr":0.1})
+    first_gp = BaseGPModel("SingleTaskGP", "ExactMarginalLogLikelihood", rbf_kernel, dataset_xsinx.unscaled_data[0], dataset_xsinx.unscaled_data[1], gp_likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=scaling_dict)
 
     first_gp.train(num_epochs=100)
 
@@ -66,6 +61,7 @@ def setup_optimization_loop(first_gp: BaseGPModel):
 
     gp_optimizer.plot_acq_func(num_points=100)
 
+    # TODO: different notation in the dict than in model_fig dict out of the gp_model
     acq_fig = gp_optimizer.acq_func_plot_dict["Dimension 1"]
 
     matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
