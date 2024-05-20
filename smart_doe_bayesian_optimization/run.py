@@ -1,5 +1,5 @@
-from flask import Flask, render_template, redirect, url_for, request
-from web_main import setup_first_model, setup_optimization_loop, get_next_optimization_iteration
+from flask import Flask, render_template, redirect, url_for, request, jsonify
+from web_main import setup_first_model, setup_optimizer, perform_optimization_iteration
 
 #template folder needs to be defined
 app = Flask(__name__, template_folder='flask_app/templates', static_folder='flask_app/static')
@@ -8,48 +8,50 @@ app = Flask(__name__, template_folder='flask_app/templates', static_folder='flas
 first_gp = None
 #global variable to store the optimizer
 optimizer = None
-#global variable to store the next value
-next_value = "-"
-#global variable to display next_value
-next_display_value = "-"
-#global variable to store the next y answer
-next_y_value = None
+
 
 @app.route('/')
 def home():
-    return render_template('index.html', next_display_value=next_display_value)
+    return render_template('index.html')
 
-@app.route('/start_doe', methods=['POST'])
-def start_doe():
-    #call to use the global variable first_gp
-    global first_gp 
-    first_gp = setup_first_model() 
-    print(f"global gp initialized with {first_gp}") 
-    return redirect(url_for('home'))  
 
-@app.route('/start_optimization', methods=['POST'])
-def start_optimization():
-    global optimizer, next_value, next_display_value
-    optimizer, next_value = setup_optimization_loop(first_gp)
-    next_display_value = round(next_value.item(), 2)
-    print(f"optimization loop initiated with {first_gp}")
-    return redirect(url_for('home'))
-
-@app.route('/update_next_y_value', methods=['POST'])
-def update_next_y_value():
-    global next_y_value
-    next_y_value = request.form['next_y_value']
-    print(f"Updated next_y_value: {next_y_value}") 
-    return redirect(url_for('home'))
-
-@app.route('/get_next_optimization_iteration', methods=['POST'])
-def get_next_optimization_iteration_route():
-    global next_value, optimizer, next_y_value, first_gp, next_display_value
-    print(next_y_value)
-    print(type(next_y_value))
-    next_value = get_next_optimization_iteration(optimizer, input_value=float(next_y_value), original_x=next_value)
-    next_display_value = round(next_value.item(), 2)
-    return redirect(url_for('home'))
+@app.route('/activate_model', methods=['POST'])
+def activate_model():
+    try:
+        global first_gp
+        first_gp = setup_first_model()
+        num_parameters = first_gp.train_X.shape[1]
+        return jsonify({'status': 'success', 'message': 'Model activated successfully!', 'num_parameters': num_parameters})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+    
+@app.route('/activate_optimizer', methods=['POST'])
+def activate_optimizer():
+    try:
+        global optimizer, first_gp
+        optimizer = setup_optimizer(first_gp)
+        next_parameter_setting = optimizer.next_proposed_parameter_setting.tolist()
+        flattened_list = [item for sublist in next_parameter_setting for item in sublist]
+        print(next_parameter_setting)
+        print(type(next_parameter_setting))
+        return jsonify({'status': 'success', 'message': 'Optimizer initiated successfully!', 'next_parameter_setting': flattened_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+    
+@app.route('/perform_optimization', methods=['POST'])
+def perform_optimization():
+    try:
+        global optimizer
+        user_input = request.json.get('userInput')
+        # Perform your function with the input value here
+        user_input = float(user_input)
+        perform_optimization_iteration(optimizer, user_input)
+        print(f"User input received: {user_input}")
+        next_parameter_setting = optimizer.next_proposed_parameter_setting.tolist()
+        flattened_list = [item for sublist in next_parameter_setting for item in sublist]
+        return jsonify({'status': 'success', 'message': f'Input value {user_input} processed by the AI Model!', 'next_parameter_setting': flattened_list})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
     app.run(debug=True)

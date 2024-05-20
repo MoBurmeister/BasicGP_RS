@@ -62,8 +62,9 @@ from botorch import fit_gpytorch_mll
 
 xsinx = FunctionFactory
 
-dataset_xsinx = DatasetManager(dtype=torch.float64)
-dataset_xsinx.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
+dataset_sum_sines = DatasetManager(dtype=torch.float64)
+
+dataset_sum_sines.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
 
 dict = config_parser("BasicGP_RS\smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
 
@@ -71,4 +72,20 @@ kernel = KernelFactory.create_kernel(dict["kernel_config"])
 
 likelihood = LikelihoodFactory.create_likelihood(dict["likelihood_config"])
 
-first_gp = BaseGPModel(dict["gp_model_config"], kernel, dataset_xsinx.unscaled_data[0], dataset_xsinx.unscaled_data[1], likelihood, bounds_list=dataset_xsinx.bounds_list, scaling_dict=dict["scaling_config"])
+first_gp = BaseGPModel(dict["gp_model_config"], kernel, dataset_sum_sines.unscaled_data[0], dataset_sum_sines.unscaled_data[1], likelihood, bounds_list=dataset_sum_sines.bounds_list, scaling_dict=dict["scaling_config"])
+
+first_gp.train(num_epochs=100)  
+
+first_gp.visualize_trained_model()
+
+# optimizer = GPOptimizer(base_model=first_gp, acq_func_type="LogExp_Improvement", is_maximization=True)
+
+# print(optimizer.next_proposed_parameter_setting)
+
+# optimizer.optimization_iteration(observation=1.81)
+
+# print(optimizer.next_proposed_parameter_setting)
+
+# optimizer.optimization_iteration(observation=2.1)
+
+# print("exit")

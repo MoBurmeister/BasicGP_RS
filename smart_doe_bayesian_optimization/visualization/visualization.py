@@ -43,7 +43,7 @@ class GPVisualizer:
             ax.plot(x_range, mean, label='Predictive Mean')
             ax.fill_between(x_range, lower, upper, alpha=0.5, label='95% Confidence Interval')
             # TODO: potentially here: .cpu() at the end of each tensor?
-            ax.scatter(train_X.numpy(), train_Y.numpy(), c='red', label='Observations')
+            ax.scatter(train_X[:, dim].numpy(), train_Y.numpy(), c='red', label='Observations')
             ax.legend()
             ax.set_xlabel(f'Input dimension {dim+1}')
             ax.set_ylabel('Output')

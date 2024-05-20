@@ -15,6 +15,6 @@ def check_same_dimension(tensor1: torch.Tensor, tensor2: torch.Tensor) -> None:
     Raises:
         ValueError: If the tensors do not have the same dimensions.
     """
-    if tensor1.shape != tensor2.shape:
+    if tensor1.shape[1] != tensor2.shape[1]:
         raise ValueError(f"The dimensions of the tensors are not the same. "
                          f"Tensor1 has shape {tensor1.shape} while Tensor2 has shape {tensor2.shape}.")

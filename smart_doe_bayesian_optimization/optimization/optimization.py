@@ -38,6 +38,8 @@ class GPOptimizer():
         self.next_observation_point = None
         self.next_proposed_parameter_setting, _ = self.get_optimization_values(num_restarts=40, raw_samples=400)
     
+    # TODO: this function needs rebuilding
+    
     def optimization_loop(self, num_restarts: int, raw_samples: int, convergence_criteria: str = 'obj_func_pred_opt', manual_input: bool = True, max_iterations: int = 100):
         #convergence of objective function AND prediction output OR of the acq_func_value?
         
@@ -71,10 +73,9 @@ class GPOptimizer():
         
     def optimization_iteration(self, observation:float, num_restarts=40, raw_samples=400):
 
-        if self.next_observation_point is None:
-            raise ValueError("No next observation point set. Please run an optimization loop first.")
+        self.add_new_observation_to_optimizer(observation=observation)
         
-        self.base_model.add_point_to_dataset(new_X = candidate, new_Y = self.next_observation_point)
+        self.base_model.add_point_to_dataset(new_X = self.next_proposed_parameter_setting, new_Y = self.next_observation_point)
 
         self.base_model.train(num_epochs=100)
 
@@ -87,6 +88,9 @@ class GPOptimizer():
 
     def get_optimization_values(self, num_restarts=40, raw_samples=400):
         
+        if self.base_model.gp_model is None:
+            raise ValueError("No GP model set. Please run a train loop first!")
+
         self.acq_func = AcquisitionFunctionFactory.create_acquisition_function(acq_function_type=self.acq_func_type, gp_model=self.base_model.gp_model, train_Y= self.base_model.train_Y, maximization=self.is_maximization)
 
         candidate, acq_value = optimize_acqf(
@@ -97,7 +101,7 @@ class GPOptimizer():
             raw_samples=raw_samples
         )
 
-        self.acq_func_values.append(candidate.item())
+        self.acq_func_values.append(acq_value.item())
 
         return candidate, acq_value
 
