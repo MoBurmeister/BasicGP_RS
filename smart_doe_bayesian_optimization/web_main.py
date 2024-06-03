@@ -16,16 +16,16 @@ from utils.config_parser_utils import config_parser
 
 def setup_first_model():
 
-    xsinx = FunctionFactory
-
-    dataset_sum_sines = DatasetManager(dtype=torch.float64)
-
-    dataset_sum_sines.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
-
     # xsinx = FunctionFactory
 
     # dataset_sum_sines = DatasetManager(dtype=torch.float64)
-    # dataset_sum_sines.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
+
+    # dataset_sum_sines.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
+
+    xsinx = FunctionFactory
+
+    dataset_sum_sines = DatasetManager(dtype=torch.float64)
+    dataset_sum_sines.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
 
     dict = config_parser("BasicGP_RS\smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
 
