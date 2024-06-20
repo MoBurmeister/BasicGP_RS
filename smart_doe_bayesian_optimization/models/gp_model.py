@@ -6,7 +6,7 @@ from models.optimizer_factory import OptimizerFactory
 from gpytorch.likelihoods import Likelihood
 from visualization.visualization import GPVisualizer
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from botorch.fit import fit_gpytorch_model
+from botorch.fit import fit_gpytorch_mll
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.models.transforms.input import InputTransform, Normalize
 from utils.checking_utils import check_same_dimension
@@ -58,7 +58,7 @@ class BaseGPModel():
 
         self.print_model_info()
 
-        # TODO: What about the "to" function? when applicable?
+        # TODO: What about the "to" function? when applicable? Relevant for later use in gpu station settings!
 
     def to(self, device, dtype):
         self.gp_model = self.gp_model.to(device=device, dtype=dtype)
@@ -107,11 +107,11 @@ class BaseGPModel():
             print(f"Training with input transformation: {self.input_transform} and outcome transformation: {self.outcome_transform}.")
             self.gp_model = GPModelFactory.create_model(model_type = self.gp_model_type, train_X=self.train_X, train_Y=self.train_Y, kernel=self.kernel, likelihood=self.likelihood, outcome_transform=self.outcome_transform, input_transform=self.input_transform)
             self.mll = MLLFactory.create_mll(type=self.mll_type, model=self.gp_model, likelihood=self.likelihood)
-            fit_gpytorch_model(self.mll)
+            fit_gpytorch_mll(self.mll)
             # TODO: printout for training progress and also later training results?
 
         else:
-            raise ValueError("Convergence training is not yet implemented! Please set convergence_training to True!")
+            raise ValueError("Traditional training is not yet implemented! Please set convergence_training to True!")
             #print(f"Performing traditional training with {self.optimizer} as an optimizer, training over {num_epochs} epochs!")
             # TODO: fit_gpytorch_mll_torch can also be a useable function here - what does it implement/realise better or worse? what should be used here?
             # TODO: optimizer needs to be re-initiated here!

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="3a780ed6-624c-4166-b0fe-99b2254e490b" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/smart_doe_bayesian_optimization/data/create_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/smart_doe_bayesian_optimization/data/create_dataset.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/smart_doe_bayesian_optimization/data/function_factory.py" beforeDir="false" afterPath="$PROJECT_DIR$/smart_doe_bayesian_optimization/data/function_factory.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/smart_doe_bayesian_optimization/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/smart_doe_bayesian_optimization/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/smart_doe_bayesian_optimization/models/gp_model.py" beforeDir="false" afterPath="$PROJECT_DIR$/smart_doe_bayesian_optimization/models/gp_model.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -18,9 +19,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 6
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
   <component name="ProjectId" id="2foF4lPSGzEp9Oy39P4GlK2ppSE" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -31,8 +32,12 @@
     "Python.main.executor": "Debug",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "MVP__GP",
+    "git-widget-placeholder": "rep__multi__bo__gp",
     "last_opened_file_path": "C:/Users/Moritz/Documents/Masterarbeit_GAMI/BasicGP_RS",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "vue.rearranger.settings.migration": "true"
   }
@@ -53,11 +58,23 @@
       <option name="presentableId" value="Default" />
       <updated>1714459335177</updated>
       <workItem from="1714459336478" duration="92000" />
+      <workItem from="1718004489420" duration="395000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
