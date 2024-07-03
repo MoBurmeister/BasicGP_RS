@@ -1,10 +1,8 @@
 import models
 import torch
-from models.gp_model import BaseGPModel
 from models.kernel_factory import KernelFactory
 from gpytorch.priors import NormalPrior
 from models.likelihood_factory import LikelihoodFactory
-from data.create_dataset import DatasetManager
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 from models.optimizer_factory import OptimizerFactory
@@ -12,8 +10,18 @@ from optimization.optimization import GPOptimizer
 import matplotlib.pyplot as plt
 from gpytorch.priors.torch_priors import GammaPrior
 from utils.config_parser_utils import config_parser
+from data.create_dataset import DataManager
+from utils.checking_utils import check_type
 
 from botorch import fit_gpytorch_mll
+
+
+sin_x = FunctionFactory
+
+main_dataset = DataManager()
+
+main_dataset.load_initial_dataset(sin_x.function_xsinx, num_datapoints=5, bounds=[(0, 6)], sampling_method="grid", noise_level=0)
+
 
 # xsinx = FunctionFactory
 
@@ -60,23 +68,23 @@ from botorch import fit_gpytorch_mll
 
 # plt.show()
 
-xsinx = FunctionFactory
+# xsinx = FunctionFactory
 
-dataset_sum_sines = DatasetManager(dtype=torch.float64)
+# dataset_sum_sines = DatasetManager(dtype=torch.float64)
 
-dataset_sum_sines.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
+# dataset_sum_sines.func_create_dataset(xsinx.sum_of_sines, num_datapoints=5, sampling_method="grid", noise_level=0, x1_range=(0,6), x2_range=(5,10), x3_range=(100,200))
 
-dict = config_parser("BasicGP_RS\smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
+# dict = config_parser("BasicGP_RS\smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
 
-kernel = KernelFactory.create_kernel(dict["kernel_config"])
+# kernel = KernelFactory.create_kernel(dict["kernel_config"])
 
-likelihood = LikelihoodFactory.create_likelihood(dict["likelihood_config"])
+# likelihood = LikelihoodFactory.create_likelihood(dict["likelihood_config"])
 
-first_gp = BaseGPModel(dict["gp_model_config"], kernel, dataset_sum_sines.unscaled_data[0], dataset_sum_sines.unscaled_data[1], likelihood, bounds_list=dataset_sum_sines.bounds_list, scaling_dict=dict["scaling_config"])
+# first_gp = BaseGPModel(dict["gp_model_config"], kernel, dataset_sum_sines.unscaled_data[0], dataset_sum_sines.unscaled_data[1], likelihood, bounds_list=dataset_sum_sines.bounds_list, scaling_dict=dict["scaling_config"])
 
-first_gp.train(num_epochs=100)  
+# first_gp.train(num_epochs=100)  
 
-first_gp.visualize_trained_model()
+# first_gp.visualize_trained_model()
 
 # optimizer = GPOptimizer(base_model=first_gp, acq_func_type="LogExp_Improvement", is_maximization=True)
 

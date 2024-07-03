@@ -1,63 +1,118 @@
 import torch
-from typing import Callable
+from typing import Callable, List, Tuple
+from utils.checking_utils import check_type
+from data.dataset import Dataset
 
-# TODO: implement transform data function
 # TODO: implement receive dataset from filepath function
-# TODO: Bounds integration, especially for the filepath acquiring of data
-# TODO: further testing, especially for multi input/output functions
-# TODO: what about more robust scaling methods? What about the scaling schedule?
 
-# TODO: the **kwargs should be changed here into a range dict, which is a more clear way of initiating it
+class DataManager:
 
-class DatasetManager:
-    def __init__(self, dtype: torch.dtype, filepath: str = None) -> None:
-        self.filepath = filepath
+    def __init__(self, dtype: torch.dtype = torch.float64):
+        self.historic_data_loader = HistoricDataLoader()
+        self.initial_data_loader = InitialDataLoader()
+        self.initial_dataset = None
+        self.historic_datasets = []
         self.dtype = dtype
-        self.input_dim = None
-        self.output_dim = None
-        self.num_datapoints = None
-        self.dataset_func = None
-        self.unscaled_data = None
-        self.bounds_list = []
 
-    def func_create_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints: int, sampling_method: str = "grid", noise_level: float = 0.0, **kwargs):
+        #perform check, always after adding a new dataset or sth. else
+    
+    def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0):
+        initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, sampling_method, noise_level)
+        check_type(initial_dataset, Dataset)
+        self.initial_dataset = initial_dataset
+        # TODO: there needs to be a check here, that if a historic dataset exist, the dims must match accross historic and initial dataset 
+        print("Initial dataset added (and old one discarded):")
+        print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
+        print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
+        print(f"Number of output dimensions: {self.initial_dataset.output_data.shape[1]}")
+
+    def load_historic_dataset(self):
+        # TODO: there needs to be a check here, that if a historic dataset exist, the dims must match accross historic and initial dataset 
+        pass
+
+    
+class InitialDataLoader:
+
+    #here without classmethod, since there can be the case that I need costum configs for these intiated loaders 
+
+    def __init__(self, dtype: torch.dtype = torch.float64):
+        self.dtype = dtype
+
+    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
+        """
+        Load a dataset using the specified dataset function and parameters.
+        Important: bounds are provided as a touple here, need to be converted into correct ([2, d]) shape via the convert_bounds_to_tensor function.
+
+        Args:
+            dataset_func (Callable[..., torch.Tensor]): A function that generates the dataset.
+            num_datapoints (int): The number of datapoints to generate.
+            bounds (List[tuple]): The bounds for each input dimension.
+            sampling_method (str, optional): The method for sampling inputs. Defaults to "grid".
+            noise_level (float, optional): The level of noise to add to the outputs. Defaults to 0.0.
+
+        Returns:
+            Dataset: The loaded dataset.
+
+        Raises:
+            ValueError: If the sampling method is not 'random' or 'grid'.
+        """
         
-        self.num_datapoints = num_datapoints
+        num_datapoints = num_datapoints
 
         if sampling_method not in ['random', 'grid']:
             raise ValueError("Sampling method must be 'random' or 'grid'.")
-        
+
         inputs = []
         if sampling_method == "random":
-            for key, range_val in kwargs.items():
-                inputs.append(torch.rand(num_datapoints) * (range_val[1] - range_val[0]) + range_val[0])
+            for touple in bounds:
+                inputs.append(torch.rand(num_datapoints) * (touple[1] - touple[0]) + touple[0])
             inputs = torch.stack(inputs, dim=1)
         elif sampling_method == "grid":
-            for key, range_val in kwargs.items():
-                inputs.append(torch.linspace(range_val[0], range_val[1], steps=num_datapoints))
+            for touple in bounds:
+                inputs.append(torch.linspace(touple[0], touple[1], steps=num_datapoints))
             inputs = torch.stack(inputs, dim=1)
 
-        self.setbounds(**kwargs)
+        bounds_tensor = self.convert_bounds_to_tensor(bounds)
 
-        inputs = inputs.to(self.dtype)
-        outputs, self.output_dim = dataset_func(inputs)
+        # TODO: do I still later need this _?
+
+        output, _ = dataset_func(inputs)
 
         if noise_level > 0:
             outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
 
-        outputs = outputs.to(self.dtype)
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_name="initial_dataset")
 
-        self.unscaled_data = (inputs.clone(), outputs.clone())
+        return initial_datset
 
-        self.input_dim = sum(1 for key in kwargs if '_range' in key)
 
-        self.check_shape(inputs, outputs)
-
-        self.check_dimensions(inputs, outputs)
-
-    def setbounds(self, **kwargs):
-        self.bounds_list = [value for key, value in kwargs.items() if "range" in key]
-
+    def convert_bounds_to_tensor(self, bounds: List[Tuple[float, float]]) -> torch.Tensor:
+        """
+        Convert a list of bounds (min, max) into a tensor with shape [2, d].
+        
+        Args:
+            bounds (List[Tuple[float, float]]): A list of tuples, where each tuple contains two floats 
+                                                representing the minimum and maximum bounds.
+        
+        Returns:
+            torch.Tensor: A tensor of shape [2, d], where d is the number of bounds. The first row 
+                        contains the minimum values and the second row contains the maximum values.
+                        
+        Example:
+            >>> bounds = [(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)]
+            >>> convert_bounds_to_tensor(bounds)
+            tensor([[1.0, 3.0, 5.0],
+                    [2.0, 4.0, 6.0]])
+        """
+        # Separate the min and max values
+        min_values = [b[0] for b in bounds]
+        max_values = [b[1] for b in bounds]
+        
+        # Create a tensor from the lists of min and max values
+        tensor = torch.tensor([min_values, max_values], dtype=self.dtype)
+        
+        return tensor
+    
     def add_noise(self, outputs: torch.Tensor, noise_level: float):
         """ Adds Gaussian noise to output data.
 
@@ -66,45 +121,36 @@ class DatasetManager:
         :return: outputs with noise added.
         """
         return outputs + noise_level * torch.randn_like(outputs)
+   
+
+class HistoricDataLoader:
     
-    def check_shape(self, inputs: torch.Tensor, outputs: torch.Tensor):
-        """
-        Verifies that both inputs and outputs tensors have the shape ([n, d]) and
-        that n is equivalent to self.num_datapoints.
+    '''
+    Consideration of what needs to be transfered from the historic dataset to the new one:
+    - input and output data
+    - bounds
+    - pareto front
+    - optimization iteration
+    - form of special setup (for latent variable model) 
+    - there also needs to be an identifier regarding the initiating order of the historic datasets? 
+           - what about the iterative adding off new data, but with each time the number of datapoints will be reduced, since knowledge is transferred
+           - I probably need not only an order identifier, but also a "point in time" identifier, since t here can be multiple start datasets, ...
 
-        Args:
-        inputs (torch.Tensor): The input tensor to be verified.
-        outputs (torch.Tensor): The output tensor to be verified.
+    Best solution will probably be to save it as a pickle file: dictionary structure can be used to save all the necessary information
+    '''
 
-        Raises:
-        ValueError: If the number of datapoints (n) in inputs or outputs does not match self.num_datapoints.
-        ValueError: If inputs or outputs are not two-dimensional.
-        """
-        if inputs.ndim != 2:
-            raise ValueError(f"Inputs should be 2-dimensional, got {inputs.ndim} dimensions")
-        if outputs.ndim != 2:
-            raise ValueError(f"Outputs should be 2-dimensional, got {outputs.ndim} dimensions")
 
-        if inputs.shape[0] != self.num_datapoints:
-            raise ValueError(f"Input tensor number of datapoints mismatch: expected {self.num_datapoints}, got {inputs.shape[0]}")
-        if outputs.shape[0] != self.num_datapoints:
-            raise ValueError(f"Output tensor number of datapoints mismatch: expected {self.num_datapoints}, got {outputs.shape[0]}")
-      
-    def check_dimensions(self, inputs: torch.Tensor, outputs: torch.Tensor):
-        """
-        Verifies that the inputs and outputs have dimensions that match the expected input_dim and output_dim.
-        
-        Args:
-        inputs (torch.Tensor): The input tensor to be verified.
-        outputs (torch.Tensor): The output tensor to be verified.
-        
-        Raises:
-        ValueError: If dimensions do not match the expected dimensions.
-        """
-        if inputs.shape[1] != self.input_dim:
-            raise ValueError(f"Input dimension mismatch: expected {self.input_dim}, got {inputs.shape[1]}")
-        if outputs.shape[1] != self.output_dim:
-            raise ValueError(f"Output dimension mismatch: expected {self.output_dim}, got {outputs.shape[1]}")
+    
+    pass
 
-    def train_test_split(self):
-        pass
+    
+
+
+
+#     # TODO: Implement the create dataset from filepath function: providided initial dataset in some form
+#     def create_dataset_from_path(self):
+#         pass
+    
+#     #unknown if and when this will be necessary
+#     def train_test_split(self):
+#         pass
