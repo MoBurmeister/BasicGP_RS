@@ -27,7 +27,7 @@ def setup_first_model():
     dataset_sum_sines = DatasetManager(dtype=torch.float64)
     dataset_sum_sines.func_create_dataset(xsinx.function_xsinx, num_datapoints=2, sampling_method="grid", noise_level=0, x1_range=(0,6))
 
-    dict = config_parser("BasicGP_RS\smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
+    dict = config_parser("smart_doe_bayesian_optimization\config_files\config_simple_GP.json")
 
     kernel = KernelFactory.create_kernel(dict["kernel_config"])
 
@@ -39,7 +39,7 @@ def setup_first_model():
 
     first_gp.visualize_trained_model()
 
-    matplotlib_to_png(first_gp.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+    matplotlib_to_png(first_gp.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     return first_gp
 
@@ -49,7 +49,7 @@ def setup_optimizer(first_gp: BaseGPModel):
 
     gp_optimizer.plot_acq_func(num_points=100)
 
-    matplotlib_to_png(gp_optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+    matplotlib_to_png(gp_optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     return gp_optimizer
 
@@ -59,8 +59,8 @@ def perform_optimization_iteration(optimizer: GPOptimizer, observation: float):
 
     optimizer.base_model.visualize_trained_model()
 
-    matplotlib_to_png(optimizer.base_model.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+    matplotlib_to_png(optimizer.base_model.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     optimizer.plot_acq_func(num_points=100)
 
-    matplotlib_to_png(optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+    matplotlib_to_png(optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'smart_doe_bayesian_optimization\\flask_app\\static\\images')
