@@ -6,7 +6,6 @@ from models.likelihood_factory import LikelihoodFactory
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 from models.optimizer_factory import OptimizerFactory
-from optimization.optimization import GPOptimizer
 import matplotlib.pyplot as plt
 from gpytorch.priors.torch_priors import GammaPrior
 from utils.config_parser_utils import config_parser
