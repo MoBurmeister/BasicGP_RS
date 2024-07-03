@@ -20,7 +20,7 @@ class Dataset:
         output_dim (int): The number of dimensions in the output data.
     """
 
-    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_name: str, dtype: torch.dtype = torch.float64):
+    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_type: str, dtype: torch.dtype = torch.float64, historic_data: dict = None):
         """
         Initializes a Dataset object.
 
@@ -30,6 +30,12 @@ class Dataset:
             bounds (torch.Tensor): The bounds tensor.
             dtype (torch.dtype, optional): The data type of the tensors. Defaults to torch.float64.
         """
+
+        valid_datamanager_types = ["historic", "initial"]
+        if datamanager_type not in valid_datamanager_types:
+            raise ValueError(f"datamanager_type must be one of {valid_datamanager_types}, but got '{datamanager_type}'.")
+
+        self.datamanager_type = datamanager_type
 
         self.dtype = dtype
 
@@ -49,7 +55,17 @@ class Dataset:
         check_dataset_bounds(bounds=bounds, input_dim=self.input_dim)
         self.bounds_list = bounds
 
-        print(f"Dataset created for {datamanager_name} with {self.input_dim} input dimensions and {self.output_dim} output dimensions.")
+        if self.datamanager_type == "historic":
+            if historic_data is None:
+                raise ValueError("historic_data must be provided when datamanager_type is 'historic'.")
+            self.historical_data = {
+            "identifier": historic_data["identifier"],
+            "mean_module": historic_data["mean_module"],
+            "cov_module": historic_data["cov_module"]
+            }
+
+
+        print(f"Dataset created for {datamanager_type} with {self.input_dim} input dimensions and {self.output_dim} output dimensions.")
         print(f"Number of datapoints: {self.num_datapoints}")
         print(f"Bounds: {self.bounds_list.tolist()}")
 

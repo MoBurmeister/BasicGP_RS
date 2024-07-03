@@ -7,14 +7,15 @@ from data.dataset import Dataset
 
 class DataManager:
 
-    def __init__(self, dtype: torch.dtype = torch.float64):
+    def __init__(self, dtype: torch.dtype = torch.float64, historic_datasets: List[Dataset] = None):
         self.historic_data_loader = HistoricDataLoader()
-        self.initial_data_loader = InitialDataLoader()
+        self.initial_data_loader = InitialDataLoader(dtype=dtype)
         self.initial_dataset = None
+        self.input_historic_datasets = historic_datasets    
         self.historic_datasets = []
         self.dtype = dtype
 
-        #perform check, always after adding a new dataset or sth. else
+        # TODO: perform check, always after adding a new dataset or sth. else
     
     def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0):
         initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, sampling_method, noise_level)
@@ -28,7 +29,9 @@ class DataManager:
 
     def load_historic_dataset(self):
         # TODO: there needs to be a check here, that if a historic dataset exist, the dims must match accross historic and initial dataset 
-        pass
+        for hist_dataset in self.input_historic_datasets:
+            self.historic_datasets.append(HistoricDataLoader.load_dataset(hist_dataset))
+        
 
     
 class InitialDataLoader:
@@ -141,7 +144,8 @@ class HistoricDataLoader:
 
 
     
-    pass
+    def load_dataset(self, dataset: Dataset) -> Dataset:
+        
 
     
 
