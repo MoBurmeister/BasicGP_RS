@@ -11,6 +11,7 @@ from gpytorch.priors.torch_priors import GammaPrior
 from utils.config_parser_utils import config_parser
 from data.create_dataset import DataManager
 from utils.checking_utils import check_type
+from models.model_initializer.multi_singletaskgp_initializer import MultiSingletaskGPInitializer  
 
 from botorch import fit_gpytorch_mll
 
@@ -19,7 +20,15 @@ sin_x = FunctionFactory
 
 main_dataset = DataManager()
 
-main_dataset.load_initial_dataset(sin_x.function_xsinx, num_datapoints=5, bounds=[(0, 6)], sampling_method="grid", noise_level=0)
+main_dataset.load_initial_dataset(sin_x.multi_inputs, num_datapoints=5, bounds=[(0, 6)], sampling_method="grid", noise_level=0)
+
+main_dataset.load_historic_dataset('smart_doe_bayesian_optimization\dataset_creation\pickle_files\datasets.pkl')
+
+multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
+
+multisingletaskgp.initialize_model()
+
+
 
 
 # xsinx = FunctionFactory
@@ -34,7 +43,7 @@ main_dataset.load_initial_dataset(sin_x.function_xsinx, num_datapoints=5, bounds
 
 # # Instantiate an RBF Kernel with a lengthscale prior and ARD for 3 dimensions
 # rbf_kernel = KernelFactory.create_kernel(
-#     'Matern', 
+#     'Matern',  
 #     nu=2.5, 
 #     lengthscale_prior=GammaPrior(3.0, 6.0)
 # )

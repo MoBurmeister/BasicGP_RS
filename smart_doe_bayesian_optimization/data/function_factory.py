@@ -59,4 +59,8 @@ class FunctionFactory:
     
     @staticmethod
     def multi_inputs(inputs):
-        pass
+        expected_output_shape = 3
+        result = torch.sin(inputs)
+        result1 = torch.sin(inputs + 1)
+        result2 = torch.sin(inputs + 2)
+        return torch.cat((result, result1, result2), dim=1), expected_output_shape

@@ -2,37 +2,70 @@ import torch
 from typing import Callable, List, Tuple
 from utils.checking_utils import check_type
 from data.dataset import Dataset
-
-# TODO: implement receive dataset from filepath function
+import pickle
 
 class DataManager:
 
-    def __init__(self, dtype: torch.dtype = torch.float64, historic_datasets: List[Dataset] = None):
-        self.historic_data_loader = HistoricDataLoader()
+    def __init__(self, dtype: torch.dtype = torch.float64):
+        self.historic_data_loader = HistoricDataLoader(dtype=dtype)
         self.initial_data_loader = InitialDataLoader(dtype=dtype)
+        self.input_dim = None
+        self.output_dim = None
         self.initial_dataset = None
-        self.input_historic_datasets = historic_datasets    
+        #init continues below:
+        '''
+        How the dataset looks like: 
+
+        main_dict = {
+        'dict1': {
+            'identifier': 1,
+            'input_dataset': torch.randn(10, 5),  # Example tensor of shape [n, d]
+            'output_dataset': torch.randn(10, 5)  # Example tensor of shape [n, d]
+            'bounds': torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]])  # Example tensor of shape [2, d]
+        },
+        '''
         self.historic_datasets = []
         self.dtype = dtype
-
-        # TODO: perform check, always after adding a new dataset or sth. else
     
     def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0):
         initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, sampling_method, noise_level)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
-        # TODO: there needs to be a check here, that if a historic dataset exist, the dims must match accross historic and initial dataset 
+        self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
         print("Initial dataset added (and old one discarded):")
         print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
         print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
         print(f"Number of output dimensions: {self.initial_dataset.output_data.shape[1]}")
+        print('-' * 50)
 
-    def load_historic_dataset(self):
-        # TODO: there needs to be a check here, that if a historic dataset exist, the dims must match accross historic and initial dataset 
-        for hist_dataset in self.input_historic_datasets:
-            self.historic_datasets.append(HistoricDataLoader.load_dataset(hist_dataset))
+    def load_historic_dataset(self, dataset_path: str):
+        # each historic dataset itself carries a one model per objective? The model is then defined by cov module and mean? Or more the cov matrix
+        # the historic datasets should rather probably just carry the data points, bounds etc. Initializ model here? 
+
+        # Load the historic dataset from the pickle file
+        with open(dataset_path, 'rb') as f:
+            historic_dict_list = pickle.load(f)
+
+        for hist_dataset in historic_dict_list:
+            transformed_dataset = self.historic_data_loader.load_dataset(hist_dataset)
+            self.set_check_input_output_dim(transformed_dataset.input_dim, transformed_dataset.output_dim)
+            self.historic_datasets.append(transformed_dataset)
+            print(f"Historic dataset added:")
+            print(f"Identifier: {transformed_dataset.identifier}")
+            print(f"Number of datapoints: {transformed_dataset.input_data.shape[0]}")
+            print(f"Number of input dimensions: {transformed_dataset.input_data.shape[1]}")
+            print(f"Number of output dimensions: {transformed_dataset.output_data.shape[1]}")
+            print('-' * 50)
+
+
+    def set_check_input_output_dim(self, input_dim: int, output_dim: int):
         
-
+        if self.input_dim is not None and self.output_dim is not None:
+            if self.input_dim != input_dim or self.output_dim != output_dim:
+                raise ValueError("Input and output dimensions must match the existing dimensions.")
+        else:
+            self.input_dim = input_dim
+            self.output_dim = output_dim
     
 class InitialDataLoader:
 
@@ -84,7 +117,7 @@ class InitialDataLoader:
         if noise_level > 0:
             outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
 
-        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_name="initial_dataset")
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial")
 
         return initial_datset
 
@@ -138,23 +171,22 @@ class HistoricDataLoader:
     - there also needs to be an identifier regarding the initiating order of the historic datasets? 
            - what about the iterative adding off new data, but with each time the number of datapoints will be reduced, since knowledge is transferred
            - I probably need not only an order identifier, but also a "point in time" identifier, since t here can be multiple start datasets, ...
+            - thought: point in time identifier not necessary, since the datapoints are just taken all as a whole and used to initialize the model. 
 
     Best solution will probably be to save it as a pickle file: dictionary structure can be used to save all the necessary information
+
+    For stage 1 i will just save the datasets as points
     '''
 
+    def __init__(self, dtype: torch.dtype = torch.float64):
+        self.dtype = dtype
 
-    
-    def load_dataset(self, dataset: Dataset) -> Dataset:
+    def load_dataset(self, hist_dataset: dict) -> Dataset:
         
+        identifier = hist_dataset['identifier']
+        input_data = hist_dataset['input_dataset']
+        output_data = hist_dataset['output_dataset']
+        bounds = hist_dataset['bounds']
 
-    
-
-
-
-#     # TODO: Implement the create dataset from filepath function: providided initial dataset in some form
-#     def create_dataset_from_path(self):
-#         pass
-    
-#     #unknown if and when this will be necessary
-#     def train_test_split(self):
-#         pass
+        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', dtype=self.dtype, identifier=identifier)
+        return historic_dataset
