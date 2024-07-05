@@ -1,4 +1,5 @@
 import torch
+import math
 '''
 The input-vector is organized in a torch.Size([n, d]) fashion:
 -n: number of datapoints
@@ -59,8 +60,19 @@ class FunctionFactory:
     
     @staticmethod
     def multi_inputs(inputs):
+        # Define the expected output shape
         expected_output_shape = 3
-        result = torch.sin(inputs)
-        result1 = torch.sin(inputs + 1)
-        result2 = torch.sin(inputs + 2)
-        return torch.cat((result, result1, result2), dim=1), expected_output_shape
+
+        # Get the shape of the input tensor
+        n, d = inputs.shape
+
+        # Initialize the output tensor with shape (n, 3)
+        outputs = torch.zeros((n, expected_output_shape))
+
+        # Generate the shifted sinus curves
+        for i in range(expected_output_shape):
+            shift = i * math.pi / 2  # Different phase shifts (0, pi/2, pi)
+            outputs[:, i] = torch.sin(inputs[:, 0] + shift)  # Apply the shift to the sinus curve
+
+        return outputs, expected_output_shape
+        

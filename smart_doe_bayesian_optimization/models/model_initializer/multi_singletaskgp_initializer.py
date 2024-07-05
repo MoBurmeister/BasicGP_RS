@@ -10,6 +10,7 @@ from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.fit import fit_gpytorch_mll
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from gpytorch.kernels import MaternKernel
+import torch
 
 class MultiSingletaskGPInitializer(BaseModel):
     def __init__(self, dataset: DataManager):
@@ -31,15 +32,21 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
-                                     train_Y=self.dataset_manager.initial_dataset.output_data[:, objective],
+                                     train_Y=self.dataset_manager.initial_dataset.output_data[:, objective].unsqueeze(1),
                                      input_transform=Normalize(d=self.dataset_manager.initial_dataset.input_dim), 
                                      outcome_transform=Standardize(m=1))
 
-            gp_model.mean_module = historic_gp_model_means[objective]
-
+            print(f"Objective {objective + 1}:")
+            print("Old Parameters:")
+            print(gp_model.mean_module.constant.item())
+            print(gp_model.covar_module.base_kernel.lengthscale.tolist())
+            
+            gp_model.mean_module.constant = historic_gp_model_means[objective]
             gp_model.covar_module = historic_gp_model_covars[objective]
-
-            gp_model_list.append(gp_model)
+            
+            print("New Parameters:")
+            print(gp_model.mean_module.constant.item())
+            print(gp_model.covar_module.lengthscale.tolist())
 
         #star to unpack the modellist here
         gp_modellist = ModelListGP(*gp_model_list)
@@ -74,6 +81,10 @@ class MultiSingletaskGPInitializer(BaseModel):
                                         input_transform=Normalize(d=historic_dataset.input_dim),
                                         outcome_transform=Standardize(m=1))
                 
+                mll = ExactMarginalLogLikelihood(gp_model.likelihood, gp_model)
+
+                mll = fit_gpytorch_mll(mll=mll)
+                
                 singletaskgp_list.append(gp_model)
             
             singletaskgp_list_all_tasks.append(singletaskgp_list)
@@ -87,6 +98,8 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         mean_list = []
         covar_list = []
+
+        singletaskgp_list_all_tasks = [list(row) for row in zip(*singletaskgp_list_all_tasks)]
 
         for singletaskgp_list in singletaskgp_list_all_tasks:
             # Extract and aggregate mean modules
@@ -110,6 +123,7 @@ class MultiSingletaskGPInitializer(BaseModel):
                     raise ValueError("Expected Matern kernel as the base kernel.")
 
             avg_nu = sum(nu_list) / len(nu_list)
+            
             #per definition can the nu value only be 1/2, 3/2, or 5/2 for the matern kernel, the closest one ist taken here
             possible_values = [1/2, 3/2, 5/2]
             closest_value = min(possible_values, key=lambda x: abs(x - avg_nu))
@@ -125,13 +139,4 @@ class MultiSingletaskGPInitializer(BaseModel):
             
             covar_list.append(avg_matern_kernel)
 
-        return mean_list, covar_list
-
-        
-            
-        
-
-
-    
-    
-    
+        return mean_list, covar_list  

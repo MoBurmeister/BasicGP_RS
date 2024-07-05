@@ -20,7 +20,7 @@ sin_x = FunctionFactory
 
 main_dataset = DataManager()
 
-main_dataset.load_initial_dataset(sin_x.multi_inputs, num_datapoints=5, bounds=[(0, 6)], sampling_method="grid", noise_level=0)
+main_dataset.load_initial_dataset(sin_x.multi_inputs, num_datapoints=5, bounds=[(0, 6), (0, 2), (0, 3), (0, 2), (2, 3)], sampling_method="grid", noise_level=0)
 
 main_dataset.load_historic_dataset('smart_doe_bayesian_optimization\dataset_creation\pickle_files\datasets.pkl')
 
