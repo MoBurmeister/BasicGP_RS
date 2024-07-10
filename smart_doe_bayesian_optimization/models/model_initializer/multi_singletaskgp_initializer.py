@@ -8,7 +8,7 @@ from gpytorch.module import Module
 from gpytorch.means.mean import Mean
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.fit import fit_gpytorch_mll
-from gpytorch.mlls import ExactMarginalLogLikelihood
+from gpytorch.mlls import ExactMarginalLogLikelihood, SumMarginalLogLikelihood
 from gpytorch.kernels import MaternKernel
 import torch
 
@@ -40,16 +40,28 @@ class MultiSingletaskGPInitializer(BaseModel):
             print("Old Parameters:")
             print(gp_model.mean_module.constant.item())
             print(gp_model.covar_module.base_kernel.lengthscale.tolist())
+            print(50*"-")
+
+            if historic_gp_model_covars:
             
-            gp_model.mean_module.constant = historic_gp_model_means[objective]
-            gp_model.covar_module = historic_gp_model_covars[objective]
-            
-            print("New Parameters:")
-            print(gp_model.mean_module.constant.item())
-            print(gp_model.covar_module.lengthscale.tolist())
+                gp_model.mean_module.constant = historic_gp_model_means[objective]
+                gp_model.covar_module = historic_gp_model_covars[objective]
+                
+                print("New Parameters:")
+                print(gp_model.mean_module.constant.item())
+                print(gp_model.covar_module.lengthscale.tolist())
+                print(50*"-")
+
+            else:
+                print("No historic data available. Using default parameters.")
+                print(50*"-")
+
+            gp_model_list.append(gp_model)
 
         #star to unpack the modellist here
         gp_modellist = ModelListGP(*gp_model_list)
+
+        print(gp_modellist.likelihood)
 
         self.gp_model = gp_modellist
 
@@ -57,11 +69,17 @@ class MultiSingletaskGPInitializer(BaseModel):
         #just first initial training 
 
         if self.gp_model is None:
-            raise ValueError("No GP model set. Please run an initiation loop first!")
+            raise ValueError("No GP model set. Please run an initiation first!")
         
-        mll = ExactMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
+        if not self.dataset_manager.historic_datasets:
+            
+            print(f"No historic data available. Training on initial dataset with fit_gpytorch_mll. MarginalLogLikelihood is maximized")
+            mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
 
-        mll = fit_gpytorch_mll(mll=mll)
+            mll = fit_gpytorch_mll(mll=mll)
+
+        else: 
+            print(f"Historic data is available. Mean and CovModule are taken and fixed. No maximization of MarginalLogLikelihood.")
                
     #these two functions are only called once in the initial setup, afterwards the state_dict is used to transfer the knowledge!
     def compute_prior_means_covar_list(self) -> tuple[list[Mean], list[Module]]:

@@ -15,18 +15,36 @@ from models.model_initializer.multi_singletaskgp_initializer import MultiSinglet
 
 from botorch import fit_gpytorch_mll
 
+print(50*"-")
 
-sin_x = FunctionFactory
+laser_hardening = FunctionFactory
 
 main_dataset = DataManager()
 
-main_dataset.load_initial_dataset(sin_x.multi_inputs, num_datapoints=5, bounds=[(0, 6), (0, 2), (0, 3), (0, 2), (2, 3)], sampling_method="grid", noise_level=0)
-
-main_dataset.load_historic_dataset('smart_doe_bayesian_optimization\dataset_creation\pickle_files\datasets.pkl')
+main_dataset.load_initial_dataset(laser_hardening.laser_heat_treatment, num_datapoints=5, bounds=[(20, 400), (200e-3 / 60, 3000e-3 / 60), (83e-6, 1000e-6)], sampling_method="grid", noise_level=0)
 
 multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
 
 multisingletaskgp.initialize_model()
+
+multisingletaskgp.train_gp_model()
+
+
+
+
+
+
+# sin_x = FunctionFactory
+
+# main_dataset = DataManager()
+
+# main_dataset.load_initial_dataset(sin_x.multi_inputs, num_datapoints=5, bounds=[(0, 6), (0, 2), (0, 3), (0, 2), (2, 3)], sampling_method="grid", noise_level=0)
+
+# main_dataset.load_historic_dataset('smart_doe_bayesian_optimization\dataset_creation\pickle_files\datasets.pkl')
+
+# multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
+
+# multisingletaskgp.initialize_model()
 
 
 
