@@ -16,6 +16,7 @@ class MultiSingletaskGPInitializer(BaseModel):
     def __init__(self, dataset: DataManager):
         super().__init__(dataset)
         self.gp_model = None
+        self.transfer_parameter = None
     
     def initialize_model(self): 
         '''
@@ -28,6 +29,8 @@ class MultiSingletaskGPInitializer(BaseModel):
         gp_model_list = []
 
         historic_gp_model_means, historic_gp_model_covars = self.compute_prior_means_covar_list()
+
+        self.transfer_parameter = [historic_gp_model_means, historic_gp_model_covars]
 
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
@@ -74,6 +77,21 @@ class MultiSingletaskGPInitializer(BaseModel):
         if not self.dataset_manager.historic_datasets:
             
             print(f"No historic data available. Training on initial dataset with fit_gpytorch_mll. MarginalLogLikelihood is maximized")
+            mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
+
+            mll = fit_gpytorch_mll(mll=mll)
+        else: 
+            if initial_train_method not in ["no_retrain", "retrain"]:
+                raise ValueError("initial_train_method must be either 'no_retrain' or 'retrain'")
+            if initial_train_method == "no_retrain":
+                print(f"Historic data is available. Mean and CovModule are taken and fixed right now. No maximization of MarginalLogLikelihood.")
+
+    def reinitialize_model(self, initial_train_method: str = "no_retrain"):
+        #function to reinitialize the model after new data has been added after each optimization iteration!
+        # TODO: Implementation of reinitiation scheduler - convergence or else
+        if not self.dataset_manager.historic_datasets:
+            
+            print(f"No historic data available. Model will be refined on the current newly added data!")
             mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
 
             mll = fit_gpytorch_mll(mll=mll)

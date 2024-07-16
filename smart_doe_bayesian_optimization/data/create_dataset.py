@@ -6,9 +6,10 @@ import pickle
 
 class DataManager:
 
-    def __init__(self, dtype: torch.dtype = torch.float64):
+    def __init__(self, dataset_func: Callable, dtype: torch.dtype = torch.float64):
         self.historic_data_loader = HistoricDataLoader(dtype=dtype)
         self.initial_data_loader = InitialDataLoader(dtype=dtype)
+        self.dataset_func = dataset_func
         self.input_dim = None
         self.output_dim = None
         self.initial_dataset = None
@@ -29,8 +30,11 @@ class DataManager:
         self.dtype = dtype
         self.minimization_flags = []
     
-    def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
-        initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, minimization_flags, sampling_method, noise_level)
+    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
+        '''
+        If a flag is False, it indicates the corresponding output dimension should be minimized!
+        '''
+        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, minimization_flags, sampling_method, noise_level)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)

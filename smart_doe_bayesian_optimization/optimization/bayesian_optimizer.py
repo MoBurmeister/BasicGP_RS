@@ -19,14 +19,19 @@ class BayesianOptimizer:
         self,
         multiobjective_model: BaseModel,
         parameter_constraints: Optional[Callable] = None,
-        output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None
+        output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
+        external_input: bool = False
     ) -> None:
         self.multiobjective_model = multiobjective_model
         self.reference_point = self.calculate_reference_point()
         self.parameter_constraints = parameter_constraints
         self.output_constraints = output_constraints
         self.next_input_setting = None
+        self.next_observation = None
+        self.external_input = external_input
 
+        print(50*"-")   
+        print(f"Bayesian Optimizer initialized.")
 
     def calculate_reference_point(self):
             '''
@@ -91,6 +96,20 @@ class BayesianOptimizer:
             raw_samples=512,
         )
 
+        print(f"Next suggested input-point: {candidate.tolist()}")
+
+        self.next_input_setting = candidate
+
+        if self.external_input:
+            print("External input is set to True. Target Observation is provided manually.")
+            raise ValueError("External input not supported yet!")
+        else:
+            print("External input is set to False. Target Observation is not provided manually and instead via function internally.")
+            self.get_next_observation()
+        
+        self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_oberservation))
+        self.multiobjective_model.reinitialize_model()
+        
 
     def validate_output_constraints(self):
         '''
@@ -111,14 +130,21 @@ class BayesianOptimizer:
                     raise ValueError("Each constraint should return a Tensor of shape (sample_shape x batch-shape x q)")
             
 
-    def get_next_parameter_values(self):
-        pass
+    def get_next_observation(self):
+        #unnecessary expected output dimension here captured as _
+        self.next_oberservation, _ = self.multiobjective_model.dataset_manager.dataset_func(self.next_input_setting)
+        print(f"Next suggested observation: {self.next_oberservation}")  
 
 
-    def optimization_loop(self):
+    # TODO: Implement stopping criterion
+    def optimization_loop(self, num_iterations: int = 10):
         #TODO: implement the optimization loop
         #this loop should later work on a stopping criterion, like marginal change in optimization targets or max iterations (effort dependent)
-        pass
+        for iteration in range(num_iterations):
+            self.optimization_iteration()
+            print(f"Iteration {iteration + 1} completed.")
+        
+        print(self.multiobjective_model.dataset_manager.initial_dataset.output_data)
 
 
 
