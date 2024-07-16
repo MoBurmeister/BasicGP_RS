@@ -7,7 +7,8 @@ def create_dataset(identifier, n, d):
         'identifier': identifier,
         'input_dataset': torch.randn(n, d),
         'output_dataset': torch.randn(n, 3),
-        'bounds': torch.tensor([[0.0] * d, [1.0] * d])
+        'bounds': torch.tensor([[0.0] * d, [1.0] * d]),
+        'minimization_flags': [False, True, True]  
     }
 
 def main():

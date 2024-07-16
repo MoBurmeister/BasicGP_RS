@@ -1,7 +1,6 @@
 import torch
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy import integrate
 '''
 The input-vector is organized in a torch.Size([n, d]) fashion:

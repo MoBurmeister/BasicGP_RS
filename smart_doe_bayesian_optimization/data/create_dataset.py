@@ -1,6 +1,6 @@
 import torch
 from typing import Callable, List, Tuple
-from utils.checking_utils import check_type
+from utils.checking_utils import check_type, check_dataset_shape, check_dataset_same_size
 from data.dataset import Dataset
 import pickle
 
@@ -24,14 +24,17 @@ class DataManager:
             'bounds': torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0, 1.0]])  # Example tensor of shape [2, d]
         },
         '''
+
         self.historic_datasets = []
         self.dtype = dtype
+        self.minimization_flags = []
     
-    def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0):
-        initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, sampling_method, noise_level)
+    def load_initial_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
+        initial_dataset = self.initial_data_loader.load_dataset(dataset_func, num_datapoints, bounds, minimization_flags, sampling_method, noise_level)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
+        self.set_check_minimization_flags(dataset=initial_dataset)
         print("Initial dataset added (and old one discarded):")
         print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
         print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
@@ -41,7 +44,6 @@ class DataManager:
     def load_historic_dataset(self, dataset_path: str):
         # each historic dataset itself carries a one model per objective? The model is then defined by cov module and mean? Or more the cov matrix
         # the historic datasets should rather probably just carry the data points, bounds etc. Initializ model here? 
-
         # Load the historic dataset from the pickle file
         with open(dataset_path, 'rb') as f:
             historic_dict_list = pickle.load(f)
@@ -50,6 +52,7 @@ class DataManager:
             transformed_dataset = self.historic_data_loader.load_dataset(hist_dataset)
             self.set_check_input_output_dim(transformed_dataset.input_dim, transformed_dataset.output_dim)
             self.historic_datasets.append(transformed_dataset)
+            self.set_check_minimization_flags(dataset=transformed_dataset)
             print(f"Historic dataset added:")
             print(f"Identifier: {transformed_dataset.identifier}")
             print(f"Number of datapoints: {transformed_dataset.input_data.shape[0]}")
@@ -57,24 +60,50 @@ class DataManager:
             print(f"Number of output dimensions: {transformed_dataset.output_data.shape[1]}")
             print('-' * 50)
 
+    def add_point_to_initial_dataset(self, point: Tuple[torch.Tensor, torch.Tensor]):
+        #Add a single point to the initial dataset
+        #Should only set one point of shape ([1, d])
+        if self.initial_dataset is None:
+            raise ValueError("No initial dataset set. Please load an initial dataset first.")
+        self.set_check_input_output_dim(point[0].shape[1], point[1].shape[1])
+        check_dataset_shape(point[0])
+        check_dataset_shape(point[1])
+        self.initial_dataset.input_data = torch.cat([self.initial_dataset.input_data, point[0]], dim=0)
+        self.initial_dataset.output_data = torch.cat([self.initial_dataset.output_data, point[1]], dim=0)
+        check_dataset_same_size(self.initial_dataset.input_data, self.initial_dataset.output_data)
+
 
     def set_check_input_output_dim(self, input_dim: int, output_dim: int):
-        
+        '''
+        Function checks if the input and output dimensions match the existing dimensions. If not, it raises a ValueError.
+        If no dimensions are set yet, it sets the dimensions to the provided values.
+        '''
         if self.input_dim is not None and self.output_dim is not None:
             if self.input_dim != input_dim or self.output_dim != output_dim:
                 raise ValueError("Input and output dimensions must match the existing dimensions.")
         else:
             self.input_dim = input_dim
             self.output_dim = output_dim
+
+    def set_check_minimization_flags(self, dataset: Dataset):
+        if self.minimization_flags:
+            if self.minimization_flags != dataset.minimization_flags:
+                raise ValueError("Minimization flags must match the existing flags in the DatasetManager.")
+        else:
+            self.minimization_flags = dataset.minimization_flags
+            print(f"Minimization flags in DatasetManager set to: {self.minimization_flags}")
+            print(50*"-")
+            
+
     
 class InitialDataLoader:
 
-    #here without classmethod, since there can be the case that I need costum configs for these intiated loaders 
+    #here without classmethod, since there can be the case that I need costum configs for these initiated loaders 
 
     def __init__(self, dtype: torch.dtype = torch.float64):
         self.dtype = dtype
 
-    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
+    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
         """
         Load a dataset using the specified dataset function and parameters.
         Important: bounds are provided as a touple here, need to be converted into correct ([2, d]) shape via the convert_bounds_to_tensor function.
@@ -117,7 +146,7 @@ class InitialDataLoader:
         if noise_level > 0:
             outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
 
-        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial")
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", minimization_flags=minimization_flags)
 
         return initial_datset
 
@@ -187,6 +216,7 @@ class HistoricDataLoader:
         input_data = hist_dataset['input_dataset']
         output_data = hist_dataset['output_dataset']
         bounds = hist_dataset['bounds']
+        minimization_flags = hist_dataset['minimization_flags']
 
-        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', dtype=self.dtype, identifier=identifier)
+        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', minimization_flags=minimization_flags, dtype=self.dtype, identifier=identifier)
         return historic_dataset

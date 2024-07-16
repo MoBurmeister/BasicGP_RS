@@ -3,11 +3,126 @@ from gpytorch.models import ExactGP
 from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.kernels import Kernel
 from torch.optim.optimizer import Optimizer
-from optimization.acquisition_function_factory import AcquisitionFunctionFactory
+from models.gp_model import BaseModel
+from botorch.acquisition.multi_objective.monte_carlo import qNoisyExpectedHypervolumeImprovement
 import torch
-import warnings
 import matplotlib.pyplot as plt
 from botorch.optim import optimize_acqf
+from typing import Callable, Optional, List
+
+
+# TODO: Implementation of parameter_constraints
+
+class BayesianOptimizer:
+
+    def __init__(
+        self,
+        multiobjective_model: BaseModel,
+        parameter_constraints: Optional[Callable] = None,
+        output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None
+    ) -> None:
+        self.multiobjective_model = multiobjective_model
+        self.reference_point = self.calculate_reference_point()
+        self.parameter_constraints = parameter_constraints
+        self.output_constraints = output_constraints
+        self.next_input_setting = None
+
+
+    def calculate_reference_point(self):
+            '''
+            The reference point is necessary as a base point for the hypervolume calculation.
+            Reference point will be calculated as the minimum (worst point) based on the current optimization dataset 
+            (no historic datasets considered)
+            It is based on all the objectives; minimum (worst) since everything is maximized
+
+            all outcomes must be greater than the corresponding ref_point value!
+            '''
+            # Get the minimum values across all the objectives (output dimensions)
+            min_values = torch.min(self.multiobjective_model.dataset_manager.initial_dataset.output_data, dim=0).values
+
+            # Convert min_values to torch.float64 to ensure the dtype is correct
+            min_values = min_values.to(torch.float64)
+
+            worsening_percentage = 5
+
+            # Calculate the worsening factor based on whether the min_value is positive or negative
+            worsening_factor = torch.ones_like(min_values)
+            worsening_factor[min_values >= 0] = 1 - (worsening_percentage / 100)  # for non-negative values, reduce by percentage
+            worsening_factor[min_values < 0] = 1 + (worsening_percentage / 100)   # for negative values, increase by percentage
+
+            # Set the reference point based on the calculated worsening factors
+            reference_point = min_values * worsening_factor
+
+            print(f"Reference Point calculated: {reference_point}")
+
+            return reference_point
+
+    def optimization_iteration(self):
+        #in the first stage I will only incorporate the qnehvi acquisition function
+        '''
+        reason for qNEHVI: 
+        qNEHVI utilizes some nice tricks that makes it much more scalable than
+        qEHVI wrt the batch size (parallelism), q.  Empirically the performance is
+        at least as good in the noiseless case and better than any other AF in the
+        noisy case. For this reason we’d recommend qNEHVI as the default multi
+        objective BO algorithm to use (and we default to it in Ax).
+        '''
+        '''
+        Since botorch assumes a maximization of all objectives, we seek to find the Pareto frontier, 
+        the set of optimal trade-offs where improving one metric means deteriorating another.
+        '''
+        self.validate_output_constraints()
+        # TODO: Should I input more arguments?
+        # TODO: Should X_Baseline be normalized?
+        # TODO: PruneBaseLine can be turned off?
+        acq_function = qNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
+                                                            ref_point=self.reference_point, 
+                                                            X_baseline=self.multiobjective_model.dataset_manager.initial_dataset.input_data,
+                                                            constraints=self.output_constraints, 
+                                                            prune_baseline=True)
+        
+        # TODO: what about num_restarts and raw_samples?
+        # here implementation of input constraints
+        candidate, acq_value = optimize_acqf(
+            acq_function=acq_function,
+            bounds=self.multiobjective_model.dataset_manager.initial_dataset.bounds_list,
+            q=1,
+            num_restarts=40,
+            raw_samples=512,
+        )
+
+
+    def validate_output_constraints(self):
+        '''
+        Validate if the output constraints are correctly setup.
+        '''
+        if self.output_constraints is not None:
+            if not isinstance(self.output_constraints, list):
+                raise ValueError("output_constraints should be a list of callables")
+            
+            for constraint in self.output_constraints:
+                if not callable(constraint):
+                    raise ValueError("Each constraint should be a callable function")
+                
+                # Check the constraint's output dimensions
+                test_tensor = torch.rand(1, 1, 1, 1)  # Example tensor with shape (sample_shape, batch_shape, q, m)
+                constraint_output = constraint(test_tensor)
+                if constraint_output.shape != test_tensor.shape[:-1]:
+                    raise ValueError("Each constraint should return a Tensor of shape (sample_shape x batch-shape x q)")
+            
+
+    def get_next_parameter_values(self):
+        pass
+
+
+    def optimization_loop(self):
+        #TODO: implement the optimization loop
+        #this loop should later work on a stopping criterion, like marginal change in optimization targets or max iterations (effort dependent)
+        pass
+
+
+
+
 
 
 # TODO: IMPORTANT: new newly added data needs to be scaled with the same mean and std like the inital dataset!
@@ -23,9 +138,6 @@ from botorch.optim import optimize_acqf
 
 # TODO: add dict support for the setup of the acq function, num_epochs, ...
 # TODO: add support for dict or setup of acq function values such as num_restarts, raw_samples, ...
-
-class OptimizerManager:
-    pass
 
 # class GPOptimizer():
 

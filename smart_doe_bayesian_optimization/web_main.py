@@ -8,7 +8,7 @@ from data.create_dataset import DatasetManager
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 from models.optimizer_factory import OptimizerFactory
-from optimization.optimization import GPOptimizer
+from smart_doe_bayesian_optimization.optimization.bayesian_optimizer import GPOptimizer
 import matplotlib.pyplot as plt
 from gpytorch.priors.torch_priors import GammaPrior
 from utils.conversion_utils import matplotlib_to_png

@@ -16,7 +16,6 @@ class MultiSingletaskGPInitializer(BaseModel):
     def __init__(self, dataset: DataManager):
         super().__init__(dataset)
         self.gp_model = None
-        self.mll = None
     
     def initialize_model(self): 
         '''
@@ -42,7 +41,10 @@ class MultiSingletaskGPInitializer(BaseModel):
             print(gp_model.covar_module.base_kernel.lengthscale.tolist())
             print(50*"-")
 
-            if historic_gp_model_covars:
+            if historic_gp_model_covars or historic_gp_model_means:
+
+                if historic_gp_model_covars is None or historic_gp_model_means is None:
+                    raise ValueError("Both historic_gp_model_covars and historic_gp_model_means must be set.")
             
                 gp_model.mean_module.constant = historic_gp_model_means[objective]
                 gp_model.covar_module = historic_gp_model_covars[objective]
@@ -61,11 +63,9 @@ class MultiSingletaskGPInitializer(BaseModel):
         #star to unpack the modellist here
         gp_modellist = ModelListGP(*gp_model_list)
 
-        print(gp_modellist.likelihood)
-
         self.gp_model = gp_modellist
 
-    def train_gp_model(self):
+    def train_initially_gp_model(self, initial_train_method: str = "no_retrain"):
         #just first initial training 
 
         if self.gp_model is None:
@@ -77,9 +77,12 @@ class MultiSingletaskGPInitializer(BaseModel):
             mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
 
             mll = fit_gpytorch_mll(mll=mll)
-
         else: 
-            print(f"Historic data is available. Mean and CovModule are taken and fixed. No maximization of MarginalLogLikelihood.")
+            if initial_train_method not in ["no_retrain", "retrain"]:
+                raise ValueError("initial_train_method must be either 'no_retrain' or 'retrain'")
+            if initial_train_method == "no_retrain":
+                print(f"Historic data is available. Mean and CovModule are taken and fixed right now. No maximization of MarginalLogLikelihood.")
+            
                
     #these two functions are only called once in the initial setup, afterwards the state_dict is used to transfer the knowledge!
     def compute_prior_means_covar_list(self) -> tuple[list[Mean], list[Module]]:
@@ -88,6 +91,7 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         singletaskgp_list_all_tasks = []
 
+        #for each historic dataset, train a singletaskgp model per objective of all objectives
         for historic_dataset in self.dataset_manager.historic_datasets:
             
             singletaskgp_list = []
@@ -102,14 +106,14 @@ class MultiSingletaskGPInitializer(BaseModel):
                 mll = ExactMarginalLogLikelihood(gp_model.likelihood, gp_model)
 
                 mll = fit_gpytorch_mll(mll=mll)
-                
+                #creates a list of GPs per historic dataset
                 singletaskgp_list.append(gp_model)
-            
+            #overall list takes the lists of GPs of the historic datasets
             singletaskgp_list_all_tasks.append(singletaskgp_list)
 
         return self.extract_mean_covar_from_list(singletaskgp_list_all_tasks)
 
-    
+    #only once called for initial setup
     def extract_mean_covar_from_list(self, singletaskgp_list_all_tasks: list[list[SingleTaskGP]]) -> tuple[list[Mean], list[Module]]:
 
         #function for initiation
