@@ -28,17 +28,17 @@ class DataManager:
 
         self.historic_datasets = []
         self.dtype = dtype
-        self.minimization_flags = []
+        self.maximization_flags = []
     
-    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
+    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
         '''
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         '''
-        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, minimization_flags, sampling_method, noise_level)
+        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
-        self.set_check_minimization_flags(dataset=initial_dataset)
+        self.set_check_maximization_flags(dataset=initial_dataset)
         print("Initial dataset added (and old one discarded):")
         print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
         print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
@@ -56,7 +56,7 @@ class DataManager:
             transformed_dataset = self.historic_data_loader.load_dataset(hist_dataset)
             self.set_check_input_output_dim(transformed_dataset.input_dim, transformed_dataset.output_dim)
             self.historic_datasets.append(transformed_dataset)
-            self.set_check_minimization_flags(dataset=transformed_dataset)
+            self.set_check_maximization_flags(dataset=transformed_dataset)
             print(f"Historic dataset added:")
             print(f"Identifier: {transformed_dataset.identifier}")
             print(f"Number of datapoints: {transformed_dataset.input_data.shape[0]}")
@@ -89,13 +89,13 @@ class DataManager:
             self.input_dim = input_dim
             self.output_dim = output_dim
 
-    def set_check_minimization_flags(self, dataset: Dataset):
-        if self.minimization_flags:
-            if self.minimization_flags != dataset.minimization_flags:
-                raise ValueError("Minimization flags must match the existing flags in the DatasetManager.")
+    def set_check_maximization_flags(self, dataset: Dataset):
+        if self.maximization_flags:
+            if self.maximization_flags != dataset.maximization_flags:
+                raise ValueError("maximization flags must match the existing flags in the DatasetManager.")
         else:
-            self.minimization_flags = dataset.minimization_flags
-            print(f"Minimization flags in DatasetManager set to: {self.minimization_flags}")
+            self.maximization_flags = dataset.maximization_flags
+            print(f"maximization flags in DatasetManager set to: {self.maximization_flags}")
             print(50*"-")
             
 
@@ -107,7 +107,7 @@ class InitialDataLoader:
     def __init__(self, dtype: torch.dtype = torch.float64):
         self.dtype = dtype
 
-    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], minimization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
+    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
         """
         Load a dataset using the specified dataset function and parameters.
         Important: bounds are provided as a touple here, need to be converted into correct ([2, d]) shape via the convert_bounds_to_tensor function.
@@ -150,7 +150,7 @@ class InitialDataLoader:
         if noise_level > 0:
             outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
 
-        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", minimization_flags=minimization_flags)
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags)
 
         return initial_datset
 
@@ -220,7 +220,7 @@ class HistoricDataLoader:
         input_data = hist_dataset['input_dataset']
         output_data = hist_dataset['output_dataset']
         bounds = hist_dataset['bounds']
-        minimization_flags = hist_dataset['minimization_flags']
+        maximization_flags = hist_dataset['maximization_flags']
 
-        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', minimization_flags=minimization_flags, dtype=self.dtype, identifier=identifier)
+        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', maximization_flags=maximization_flags, dtype=self.dtype, identifier=identifier)
         return historic_dataset

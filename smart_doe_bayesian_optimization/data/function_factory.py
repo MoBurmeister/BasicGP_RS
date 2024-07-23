@@ -1,7 +1,9 @@
 import torch
+from torch import Tensor
 import math
 import numpy as np
 from scipy import integrate
+from botorch.test_functions.multi_objective import VehicleSafety
 '''
 The input-vector is organized in a torch.Size([n, d]) fashion:
 -n: number of datapoints
@@ -123,9 +125,17 @@ class FunctionFactory:
             T_verlauf = T[:, len(y_range) // 2]
             T_max = T.max().item() - 273
 
+            t_max_allowed = 2283
+
+            t_diff = abs(T_max - t_max_allowed)
+
             hardening_time = sum(1 for k in range(len(x_range)) if T_verlauf[k] > T_Haerten) * (dx / laser_speed)
             
-            return hardening_time, T_max
+            #print(T_max, t_diff, t_max_allowed)
+
+            return hardening_time, t_diff
+
+        #maximize hardening_time while minimizing t_max but keep it below threshold
 
         results = []
         for params in inputs:
@@ -136,6 +146,138 @@ class FunctionFactory:
         expected_output_shape = 2
 
         return torch.tensor(results, dtype=torch.float64), expected_output_shape
+    
+    @staticmethod
+    def welding_beam(inputs):
+        '''
+        additional information: 
+        _bounds = [
+        (0.125, 5.0),
+        (0.1, 10.0),
+        (0.1, 10.0),
+        (0.125, 5.0),
+        ]
+        _ref_point = [40, 0.015]
+        '''
+
+        def evaluate_true(X: Tensor) -> Tensor:
+            x1, x2, x3, x4 = X.unbind(-1)
+            f1 = 1.10471 * (x1**2) * x2 + 0.04811 * x3 * x4 * (14.0 + x2)
+            f2 = 2.1952 / (x4 * x3**3)
+            return torch.stack([f1, f2], dim=-1)
+
+        expected_output_shape = 2
+        
+        return evaluate_true(inputs), expected_output_shape
+    
+
+    @staticmethod
+    def vehicle_safety_design(inputs):
+
+        def evaluate_true(self, X: Tensor) -> Tensor:
+            X1, X2, X3, X4, X5 = torch.split(X, 1, -1)
+            f1 = (
+                1640.2823
+                + 2.3573285 * X1
+                + 2.3220035 * X2
+                + 4.5688768 * X3
+                + 7.7213633 * X4
+                + 4.4559504 * X5
+            )
+            f2 = (
+                6.5856
+                + 1.15 * X1
+                - 1.0427 * X2
+                + 0.9738 * X3
+                + 0.8364 * X4
+                - 0.3695 * X1 * X4
+                + 0.0861 * X1 * X5
+                + 0.3628 * X2 * X4
+                - 0.1106 * X1.pow(2)
+                - 0.3437 * X3.pow(2)
+                + 0.1764 * X4.pow(2)
+            )
+            f3 = (
+                -0.0551
+                + 0.0181 * X1
+                + 0.1024 * X2
+                + 0.0421 * X3
+                - 0.0073 * X1 * X2
+                + 0.024 * X2 * X3
+                - 0.0118 * X2 * X4
+                - 0.0204 * X3 * X4
+                - 0.008 * X3 * X5
+                - 0.0241 * X2.pow(2)
+                + 0.0109 * X4.pow(2)
+            )
+            f_X = torch.cat([f1, f2, f3], dim=-1)
+            return f_X
+
+        #max hypervolume from paper: 246
+
+        outputs = evaluate_true(inputs)
+
+        expected_output_shape = 3
+
+        return outputs, expected_output_shape
+    
+    def generate_car_crash_synthetic_data(outputs, variation_factor=0.0):
+        '''
+        Generate synthetic data for the vehicle safety design function.
+        Variation factor is used to introduce noise to the data. It is a factor that is multiplied with the coefficients of the function.
+        '''
+        def evaluate_true(X: Tensor, coeffs) -> Tensor:
+            X1, X2, X3, X4, X5 = torch.split(X, 1, -1)
+            f1 = (
+                coeffs[0] 
+                + coeffs[1] * X1
+                + coeffs[2] * X2
+                + coeffs[3] * X3
+                + coeffs[4] * X4
+                + coeffs[5] * X5
+            )
+            f2 = (
+                coeffs[6]
+                + coeffs[7] * X1
+                - coeffs[8] * X2
+                + coeffs[9] * X3
+                + coeffs[10] * X4
+                - coeffs[11] * X1 * X4
+                + coeffs[12] * X1 * X5
+                + coeffs[13] * X2 * X4
+                - coeffs[14] * X1.pow(2)
+                - coeffs[15] * X3.pow(2)
+                + coeffs[16] * X4.pow(2)
+            )
+            f3 = (
+                coeffs[17]
+                + coeffs[18] * X1
+                + coeffs[19] * X2
+                + coeffs[20] * X3
+                - coeffs[21] * X1 * X2
+                + coeffs[22] * X2 * X3
+                - coeffs[23] * X2 * X4
+                - coeffs[24] * X3 * X4
+                - coeffs[25] * X3 * X5
+                - coeffs[26] * X2.pow(2)
+                + coeffs[27] * X4.pow(2)
+            )
+            f_X = torch.cat([f1, f2, f3], dim=-1)
+            return f_X
+
+        base_coeffs = [
+            1640.2823, 2.3573285, 2.3220035, 4.5688768, 7.7213633, 4.4559504,
+            6.5856, 1.15, 1.0427, 0.9738, 0.8364, 0.3695, 0.0861, 0.3628, 0.1106,
+            0.3437, 0.1764, -0.0551, 0.0181, 0.1024, 0.0421, 0.0073, 0.024,
+            0.0118, 0.0204, 0.008, 0.0241, 0.0109
+        ]
+        
+        # Apply variation to coefficients
+        varied_coeffs = [coeff * (1 + variation_factor) for coeff in base_coeffs]
+        
+        outputs = evaluate_true(outputs, varied_coeffs)
+        expected_output_shape = 3
+        return outputs, expected_output_shape
 
     
     # def laser_heat_treatment(inputs):

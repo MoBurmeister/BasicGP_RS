@@ -21,7 +21,7 @@ class Dataset:
         output_dim (int): The number of dimensions in the output data.
     """
 
-    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_type: str, minimization_flags: List[bool], dtype: torch.dtype = torch.float64, identifier: int = None):
+    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_type: str, maximization_flags: List[bool], dtype: torch.dtype = torch.float64, identifier: int = None):
         """
         Initializes a Dataset object.
 
@@ -30,7 +30,7 @@ class Dataset:
             output_data (torch.Tensor): The output data tensor.
             bounds (torch.Tensor): The bounds tensor.
             dtype (torch.dtype, optional): The data type of the tensors. Defaults to torch.float64.
-            minimization_flags: A list of booleans indicating whether the corresponding output dimension should be minimized or maximized. True for maximization!
+            maximization_flags: A list of booleans indicating whether the corresponding output dimension should be minimized or maximized. True for maximization!
         """
 
         valid_datamanager_types = ["historic", "initial"]
@@ -44,7 +44,7 @@ class Dataset:
         self.dtype = dtype
 
         #flags are set to true for maximization, all minimization ones need to be adjusted!
-        self.minimization_flags = minimization_flags
+        self.maximization_flags = maximization_flags
 
         check_dataset_shape(input_data)
         check_dataset_shape(output_data)
@@ -62,20 +62,20 @@ class Dataset:
         check_dataset_bounds(bounds=bounds, input_dim=self.input_dim)
         self.bounds_list = bounds
 
-        self.adjust_minimization_objectives()
+        self.adjust_maximization_objectives()
 
         print(f"Dataset created for {datamanager_type} with {self.input_dim} input dimensions and {self.output_dim} output dimensions.")
         print(f"Number of datapoints: {self.num_datapoints}")
         print(f"Bounds: {self.bounds_list.tolist()}")
         print('-' * 50)
 
-    def adjust_minimization_objectives(self):
+    def adjust_maximization_objectives(self):
         """
-        Adjusts the output data based on the minimization_flags.
+        Adjusts the output data based on the maximization_flags.
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         The method will negate the values in that output dimension.
         """
-        for i, flag in enumerate(self.minimization_flags):
+        for i, flag in enumerate(self.maximization_flags):
             if not flag:
                 self.output_data[:, i] = -self.output_data[:, i]
                 print(f"Output dimension {i} adjusted for minimization.")
@@ -90,6 +90,6 @@ class Dataset:
         self.output_data = self.output_data.to(self.dtype)
 
     def check_flags_shape(self):
-        if len(self.minimization_flags) != self.output_dim:
-            raise ValueError(f"minimization_flags must have the same length as the output dimension, but got {len(self.minimization_flags)} and {self.output_dim}.")
+        if len(self.maximization_flags) != self.output_dim:
+            raise ValueError(f"maximization_flags must have the same length as the output dimension, but got {len(self.maximization_flags)} and {self.output_dim}.")
             

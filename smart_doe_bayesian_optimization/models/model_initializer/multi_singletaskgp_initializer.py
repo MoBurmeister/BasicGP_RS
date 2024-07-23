@@ -17,20 +17,30 @@ class MultiSingletaskGPInitializer(BaseModel):
         super().__init__(dataset)
         self.gp_model = None
         self.transfer_parameter = None
+        self.initialization_flag = True
     
-    def initialize_model(self): 
+    def initially_setup_model(self): 
         '''
         These models all support multiple outputs. However, as single-task models, SingleTaskGP, FixedNoiseGP, and HeteroskedasticSingleTaskGP 
         should be used only when the outputs are independent and all use the same training data. 
         If outputs are independent and outputs have different training data, use the ModelListGP. When modeling correlations between outputs, 
         use a multi-task model like MultiTaskGP.
         '''
-
-        gp_model_list = []
+        #this code should be only run once, since it also calculates the parameters
 
         historic_gp_model_means, historic_gp_model_covars = self.compute_prior_means_covar_list()
 
         self.transfer_parameter = [historic_gp_model_means, historic_gp_model_covars]
+
+        self.setup_model()
+
+        self.initialization_flag = False
+
+        
+    
+    def setup_model(self):
+        # TODO: Implement retraining function for initialization
+        gp_model_list = []
 
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
@@ -38,11 +48,14 @@ class MultiSingletaskGPInitializer(BaseModel):
                                      input_transform=Normalize(d=self.dataset_manager.initial_dataset.input_dim), 
                                      outcome_transform=Standardize(m=1))
 
-            print(f"Objective {objective + 1}:")
-            print("Old Parameters:")
-            print(gp_model.mean_module.constant.item())
-            print(gp_model.covar_module.base_kernel.lengthscale.tolist())
-            print(50*"-")
+            if self.initialization_flag:
+                print(f"Objective {objective + 1}:")
+                print("Old Parameters:")
+                print(gp_model.mean_module.constant.item())
+                print(gp_model.covar_module.base_kernel.lengthscale.tolist())
+                print(50*"-")
+
+            historic_gp_model_means, historic_gp_model_covars = self.transfer_parameter
 
             if historic_gp_model_covars or historic_gp_model_means:
 
@@ -58,8 +71,9 @@ class MultiSingletaskGPInitializer(BaseModel):
                 print(50*"-")
 
             else:
-                print("No historic data available. Using default parameters.")
-                print(50*"-")
+                if self.initialization_flag:
+                    print("No historic data available. Using default parameters.")
+                    print(50*"-")
 
             gp_model_list.append(gp_model)
 
@@ -92,9 +106,15 @@ class MultiSingletaskGPInitializer(BaseModel):
         if not self.dataset_manager.historic_datasets:
             
             print(f"No historic data available. Model will be refined on the current newly added data!")
+            print(f"Fitting the model with {self.dataset_manager.initial_dataset.input_data.shape[0]} data points. GP details: input_train_info: {self.gp_model.train_inputs[0][0].shape}")
+
+            self.setup_model()
+
             mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
 
             mll = fit_gpytorch_mll(mll=mll)
+
+
         else: 
             if initial_train_method not in ["no_retrain", "retrain"]:
                 raise ValueError("initial_train_method must be either 'no_retrain' or 'retrain'")

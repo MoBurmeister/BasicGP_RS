@@ -1,14 +1,17 @@
 from __future__ import annotations
-from gpytorch.models import ExactGP
-from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
-from gpytorch.kernels import Kernel
-from torch.optim.optimizer import Optimizer
 from models.gp_model import BaseModel
 from botorch.acquisition.multi_objective.monte_carlo import qNoisyExpectedHypervolumeImprovement
 import torch
-import matplotlib.pyplot as plt
 from botorch.optim import optimize_acqf
 from typing import Callable, Optional, List
+from visualization.visualization import GP_Visualizer   
+import time
+from botorch.utils.multi_objective.hypervolume import Hypervolume
+from botorch.utils.multi_objective.pareto import is_non_dominated 
+from data_export.data_export import export_dicts   
+from datetime import datetime  
+import os
+from botorch.optim.stopping import ExpMAStoppingCriterion
 
 
 # TODO: Implementation of parameter_constraints
@@ -18,17 +21,33 @@ class BayesianOptimizer:
     def __init__(
         self,
         multiobjective_model: BaseModel,
-        parameter_constraints: Optional[Callable] = None,
+        parameter_constraints_equality: Optional[Callable] = None,
+        parameter_constraints_inequality: Optional[Callable] = None,
+        parameter_constraints_nonlinear_inequality: Optional[Callable] = None,
         output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
+        reference_point: Optional[torch.Tensor] = None,
         external_input: bool = False
     ) -> None:
         self.multiobjective_model = multiobjective_model
-        self.reference_point = self.calculate_reference_point()
-        self.parameter_constraints = parameter_constraints
+        if reference_point is not None:
+            self.reference_point = reference_point
+            print(f"Reference Point handed over: {reference_point}")
+        else:
+            self.reference_point = self.calculate_reference_point()
+
+        # TODO: Check for the correct setup of the constraints? Necessary? is already checked in botorch implementation?
+
+        self.parameter_constraints_equality = parameter_constraints_equality
+        self.parameter_constraints_inequality = parameter_constraints_inequality
+        self.parameter_constraints_nonlinear_inequality = parameter_constraints_nonlinear_inequality    
         self.output_constraints = output_constraints
         self.next_input_setting = None
         self.next_observation = None
         self.external_input = external_input
+        self.gp_visualizer = GP_Visualizer()
+        self.optimization_loop_data_dict = {}
+        self.results_dict = {}
+        self.hypervolume_calculator = Hypervolume(ref_point=self.reference_point)
 
         print(50*"-")   
         print(f"Bayesian Optimizer initialized.")
@@ -62,7 +81,7 @@ class BayesianOptimizer:
 
             return reference_point
 
-    def optimization_iteration(self):
+    def optimization_iteration(self, iteration_num: int):
         #in the first stage I will only incorporate the qnehvi acquisition function
         '''
         reason for qNEHVI: 
@@ -94,9 +113,15 @@ class BayesianOptimizer:
             q=1,
             num_restarts=40,
             raw_samples=512,
+            inequality_constraints=self.parameter_constraints_inequality,
+            equality_constraints=self.parameter_constraints_equality,
+            nonlinear_inequality_constraints=self.parameter_constraints_nonlinear_inequality
         )
 
-        print(f"Next suggested input-point: {candidate.tolist()}")
+        # error potential when acq_value is a tensor with multiple values
+        self.optimization_loop_data_dict[iteration_num + 1]["acq_value"] = acq_value.item()
+
+        print(f"Next suggested input-point: {candidate.tolist()} with acquisition value: {acq_value.item()}")
 
         self.next_input_setting = candidate
 
@@ -107,7 +132,7 @@ class BayesianOptimizer:
             print("External input is set to False. Target Observation is not provided manually and instead via function internally.")
             self.get_next_observation()
         
-        self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_oberservation))
+        self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_observation))
         self.multiobjective_model.reinitialize_model()
         
 
@@ -124,29 +149,136 @@ class BayesianOptimizer:
                     raise ValueError("Each constraint should be a callable function")
                 
                 # Check the constraint's output dimensions
-                test_tensor = torch.rand(1, 1, 1, 1)  # Example tensor with shape (sample_shape, batch_shape, q, m)
-                constraint_output = constraint(test_tensor)
-                if constraint_output.shape != test_tensor.shape[:-1]:
-                    raise ValueError("Each constraint should return a Tensor of shape (sample_shape x batch-shape x q)")
+                #test_tensor = torch.rand(1, 1, 1, 1)  # Example tensor with shape (sample_shape, batch_shape, q, m)
+                ##constraint_output = constraint(test_tensor)
+                #if constraint_output.shape != test_tensor.shape[:-1]:
+                #    raise ValueError("Each constraint should return a Tensor of shape (sample_shape x batch-shape x q)")
             
 
     def get_next_observation(self):
+        #I need to treat the results from the dataset_func according to the minimization flags here:
         #unnecessary expected output dimension here captured as _
-        self.next_oberservation, _ = self.multiobjective_model.dataset_manager.dataset_func(self.next_input_setting)
-        print(f"Next suggested observation: {self.next_oberservation}")  
+        next_observation, _ = self.multiobjective_model.dataset_manager.dataset_func(self.next_input_setting)
+
+        maximization_flags = self.multiobjective_model.dataset_manager.maximization_flags
+
+        # Negate the values in next_observation for dimensions where the maximization flag is False
+        for i, flag in enumerate(maximization_flags):
+            if not flag:
+                next_observation[:, i] = -next_observation[:, i]
+
+        self.next_observation = next_observation
+
+        print(f"Next observation: {self.next_observation}")  
 
 
-    # TODO: Implement stopping criterion
-    def optimization_loop(self, num_iterations: int = 10):
-        #TODO: implement the optimization loop
-        #this loop should later work on a stopping criterion, like marginal change in optimization targets or max iterations (effort dependent)
-        for iteration in range(num_iterations):
-            self.optimization_iteration()
-            print(f"Iteration {iteration + 1} completed.")
+    # TODO: Implement stopping criterion via hypervolume or on the acquisition function value?
+    '''
+    Hypervolume improvement quantifies how much the hypervolume would increase if a new point (or set of points) 
+    were added to the current Pareto front.
+    '''
+    def optimization_loop(self, num_max_iterations: int = 10):
+
+        #calculate and add initial hypervolume:
+        initial_hypervolume = self.calculate_hypervolume()
+        self.optimization_loop_data_dict[0] = {"hypervolume": initial_hypervolume}
+        print(f"Inital Hypervolume: {initial_hypervolume}")
+
+        #initiating stopping criterion classes
+        #set minimize to false, if considered measurement is maximized (e.g. hypervolume)
+        stopping_criterion_hypervolume = ExpMAStoppingCriterion(minimize=False, n_window=10, eta=1.0, rel_tol=1e-5)
+        stopping_criterion_acq_value = ExpMAStoppingCriterion(minimize=True, n_window=10, eta=1.0, rel_tol=1e-5)
+
+
+        start_time = time.time()
+
+        #this loop works on a stopping criterion, see above
+        for iteration in range(num_max_iterations):
+            iteration_start_time = time.time()
+
+            self.optimization_loop_data_dict[iteration + 1] = {}
+
+            self.optimization_iteration(iteration_num = iteration)
+            #after this the next best point is found, sampled and also added to the dataset!
+            iteration_end_time = time.time()
+            iteration_duration = iteration_end_time - iteration_start_time
+
+            self.optimization_loop_data_dict[iteration+1]["iteration_duration"] = iteration_duration
         
-        print(self.multiobjective_model.dataset_manager.initial_dataset.output_data)
+            print(f"Iteration {iteration + 1} completed. It took {iteration_duration:.2f} seconds.")
 
+            #Modulo to potentially adjust computationally expensive calculation of the hypervolume
+            if iteration % 1 == 0:
+                hypervolume = self.calculate_hypervolume()
+                self.optimization_loop_data_dict[iteration+1]["hypervolume"] = hypervolume
+                print(f"Final Hypervolume: {hypervolume}")
 
+            if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume, sc_acq_value = stopping_criterion_acq_value):
+                print(f"Stopping criterion reached after {iteration + 1} iterations. Breaking the optimization loop.")
+                break
+
+            print(50*"*")
+
+        # End measuring time
+        end_time = time.time()
+        
+        # Calculate the total time taken
+        total_time = end_time - start_time
+        
+        # Print the total time taken
+        print(f"Total time taken for optimization: {total_time:.2f} seconds. Deviations in the summed iteration times may be possible due to additional calculations outside the iterations (e.g., Hypervolume).")
+        
+        print(f"Optimization data dictionary: {self.optimization_loop_data_dict}")
+
+        print(f"Results dictionary: {self.results_dict}")
+
+        # Get the current date and format it
+        current_date = datetime.now().strftime("%Y%m%d")
+
+        # Create the file path with the current date
+        file_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export", f"{current_date}_optimization_run.xlsx")
+
+        # Export the optimization data dictionary
+        export_dicts(optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, file_path=file_path, file_format="xlsx")
+
+        print(f"Optimization data exported to {file_path}")
+
+    def calculate_hypervolume(self):
+
+        self.calculate_pareto_points()
+
+        hypervolume = self.hypervolume_calculator.compute(pareto_Y=self.results_dict["pareto_points"])
+
+        return hypervolume
+    
+    def calculate_pareto_points(self):
+
+        output_data = self.multiobjective_model.dataset_manager.initial_dataset.output_data
+
+        pareto_boolean_tensor = is_non_dominated(Y=output_data)
+
+        pareto_points = output_data[pareto_boolean_tensor]
+
+        print(pareto_points.shape)
+
+        self.results_dict["pareto_points"] = pareto_points
+        print("intermediate")
+
+    def visualize_pareto_front(self):
+        self.gp_visualizer.visualize_pareto_front_scatter(self.multiobjective_model, self.results_dict)
+
+    def visualize_expected_hypervolume_development(self):
+        self.gp_visualizer.visualize_hypervolume_improvement(self.optimization_loop_data_dict)  
+
+    def stopping_criterion(self, num_iteration: int, sc_hypervolume: ExpMAStoppingCriterion, sc_acq_value: ExpMAStoppingCriterion):
+
+        if sc_hypervolume.evaluate(torch.tensor(self.optimization_loop_data_dict[num_iteration+1]["hypervolume"])):
+            return True
+        
+        if sc_acq_value.evaluate(torch.tensor(self.optimization_loop_data_dict[num_iteration+1]["acq_value"])):
+            return True
+
+        return False
 
 
 
