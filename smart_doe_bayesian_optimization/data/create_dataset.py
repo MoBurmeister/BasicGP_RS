@@ -13,7 +13,9 @@ class DataManager:
         self.input_dim = None
         self.output_dim = None
         self.initial_dataset = None
-        #init continues below:
+        self.input_parameter_name = None
+        self.output_parameter_name = None
+        #init continues below
         '''
         How the dataset looks like: 
 
@@ -30,7 +32,7 @@ class DataManager:
         self.dtype = dtype
         self.maximization_flags = []
     
-    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0):
+    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], sampling_method: str = "grid", noise_level: float = 0.0):
         '''
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         '''
@@ -39,6 +41,8 @@ class DataManager:
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
         self.set_check_maximization_flags(dataset=initial_dataset)
+        self.input_parameter_name = input_parameter_name
+        self.output_parameter_name = output_parameter_name
         print("Initial dataset added (and old one discarded):")
         print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
         print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
@@ -210,6 +214,7 @@ class HistoricDataLoader:
 
     For stage 1 i will just save the datasets as points
     '''
+    # TODO: Transfer Learning of the historic model with its parameters/data
 
     def __init__(self, dtype: torch.dtype = torch.float64):
         self.dtype = dtype

@@ -104,6 +104,7 @@ class FunctionFactory:
             return T_Jarwitz
 
         def simulate_laser_heating(laser_power, laser_speed, laser_width, lambda_th, c_p, alpha, rho, T_Haerten):
+            
             resolution = 10000
             x_start, x_end, dx = -0.02, 0.01, 0.001
             y_start, y_end, dy = -0.005, 0.005, 0.001

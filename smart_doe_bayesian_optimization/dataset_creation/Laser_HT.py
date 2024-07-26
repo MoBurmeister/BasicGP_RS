@@ -36,7 +36,7 @@ z = 0 # hier kann eingestellt werden, ob Temperatur an Oberfläche oder in besti
 t = np.logspace(-6, 6, resolution) # Zeitliche Parameter
 
 # Laserparameter --> das hier sind die Eingangsgrößen, die wir varrieren können
-laser_pwr = [341] #[50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]   # Laserleistung (W); min 20; max 400
+laser_pwr = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]   # Laserleistung (W); min 20; max 400
 laser_speed = 0.00333333#0.015 #200e-3 / 60  # Verfahrgeschwindigkeit (m/s); min 200 mm/s; max 3000 mm/s
 laser_width = 0.001#3.1225e-04#500e-6  # Strahldurchmesser (m); min 83µm, max 1000µm (ggf. geht auch noch mehr)
 
@@ -83,10 +83,14 @@ for laser_power in laser_pwr:
         j = 0
 
     T_verlauf = T[:, int(abs((y_start - y_end) / dy) / 2)]
-    print("T_max = ", T.max() - 273, "°C")
+    print("T_max = ", T.max() - (1010+273), "°C")
+
+
 
     T_Haerten = sum(1 for k in range(int(abs((x_start - x_end) / dx))) if T_verlauf[k] > T_Haerten) * (dx / laser_speed)
     print("t (Härten) =", T_Haerten)
+
+    
 
     # --> Ziel: Zieltemperatur mit Intervall +20K für möglichst lange Zeit erreichen
 

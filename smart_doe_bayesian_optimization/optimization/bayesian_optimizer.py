@@ -8,10 +8,10 @@ from visualization.visualization import GP_Visualizer
 import time
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from botorch.utils.multi_objective.pareto import is_non_dominated 
-from data_export.data_export import export_dicts   
+from data_export.data_export import export_everything   
 from datetime import datetime  
 import os
-from botorch.optim.stopping import ExpMAStoppingCriterion
+from optimization.stopping_criterion import Extended_ExpMAStoppingCriterion
 
 
 # TODO: Implementation of parameter_constraints
@@ -45,9 +45,12 @@ class BayesianOptimizer:
         self.next_observation = None
         self.external_input = external_input
         self.gp_visualizer = GP_Visualizer()
+        #stores: hypervolume, acq_value, iteration_duration, stopping criterion ma_values for hypervolume and acq_value
         self.optimization_loop_data_dict = {}
+        #stores mainly pareto points right now:
         self.results_dict = {}
         self.hypervolume_calculator = Hypervolume(ref_point=self.reference_point)
+        self.export_figures = []
 
         print(50*"-")   
         print(f"Bayesian Optimizer initialized.")
@@ -97,8 +100,6 @@ class BayesianOptimizer:
         '''
         self.validate_output_constraints()
         # TODO: Should I input more arguments?
-        # TODO: Should X_Baseline be normalized?
-        # TODO: PruneBaseLine can be turned off?
         acq_function = qNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
                                                             ref_point=self.reference_point, 
                                                             X_baseline=self.multiobjective_model.dataset_manager.initial_dataset.input_data,
@@ -171,8 +172,6 @@ class BayesianOptimizer:
 
         print(f"Next observation: {self.next_observation}")  
 
-
-    # TODO: Implement stopping criterion via hypervolume or on the acquisition function value?
     '''
     Hypervolume improvement quantifies how much the hypervolume would increase if a new point (or set of points) 
     were added to the current Pareto front.
@@ -186,9 +185,7 @@ class BayesianOptimizer:
 
         #initiating stopping criterion classes
         #set minimize to false, if considered measurement is maximized (e.g. hypervolume)
-        stopping_criterion_hypervolume = ExpMAStoppingCriterion(minimize=False, n_window=10, eta=1.0, rel_tol=1e-5)
-        stopping_criterion_acq_value = ExpMAStoppingCriterion(minimize=True, n_window=10, eta=1.0, rel_tol=1e-5)
-
+        stopping_criterion_hypervolume = Extended_ExpMAStoppingCriterion(minimize=False, n_window=15, eta=1.0, rel_tol=1e-6)
 
         start_time = time.time()
 
@@ -213,9 +210,17 @@ class BayesianOptimizer:
                 self.optimization_loop_data_dict[iteration+1]["hypervolume"] = hypervolume
                 print(f"Final Hypervolume: {hypervolume}")
 
-            if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume, sc_acq_value = stopping_criterion_acq_value):
+            if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume):
                 print(f"Stopping criterion reached after {iteration + 1} iterations. Breaking the optimization loop.")
                 break
+            
+            #add moving average values, but these exists only after window size of ma is reached, therefore if else check - prob not b.p.
+            if stopping_criterion_hypervolume.ma_values:
+                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_value"] = stopping_criterion_hypervolume.ma_values[-1]
+                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = stopping_criterion_hypervolume.rel_values[-1]
+            else:
+                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_value"] = None
+                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = None       
 
             print(50*"*")
 
@@ -228,20 +233,26 @@ class BayesianOptimizer:
         # Print the total time taken
         print(f"Total time taken for optimization: {total_time:.2f} seconds. Deviations in the summed iteration times may be possible due to additional calculations outside the iterations (e.g., Hypervolume).")
         
-        print(f"Optimization data dictionary: {self.optimization_loop_data_dict}")
+        self.visualize_expected_hypervolume_development()
+        self.visualize_parallel_coordinates_plot()
+        self.visualize_pareto_front()
 
-        print(f"Results dictionary: {self.results_dict}")
+
+        #print(f"Optimization data dictionary: {self.optimization_loop_data_dict}")
+
+        #print(f"Results dictionary: {self.results_dict}")
 
         # Get the current date and format it
-        current_date = datetime.now().strftime("%Y%m%d")
+        current_date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Create the file path with the current date
-        file_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export", f"{current_date}_optimization_run.xlsx")
+        # Create a folder name based on the current date and time
+        folder_name = f"{current_date_time}_BOMOGP_TL_Optimization_Results"
+        
+        folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export")
 
         # Export the optimization data dictionary
-        export_dicts(optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, file_path=file_path, file_format="xlsx")
-
-        print(f"Optimization data exported to {file_path}")
+        export_everything(multiobjective_model=self.multiobjective_model, optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, fig_list=self.export_figures, folder_path=folder_path, folder_name=folder_name, file_format="xlsx")
+        print(f"Optimization data exported to folder in path: {folder_path}")
 
     def calculate_hypervolume(self):
 
@@ -259,27 +270,27 @@ class BayesianOptimizer:
 
         pareto_points = output_data[pareto_boolean_tensor]
 
-        print(pareto_points.shape)
-
         self.results_dict["pareto_points"] = pareto_points
-        print("intermediate")
 
     def visualize_pareto_front(self):
-        self.gp_visualizer.visualize_pareto_front_scatter(self.multiobjective_model, self.results_dict)
+        fig = self.gp_visualizer.visualize_pareto_front_scatter(self.multiobjective_model, self.results_dict)
+        self.export_figures.append(fig)
 
     def visualize_expected_hypervolume_development(self):
-        self.gp_visualizer.visualize_hypervolume_improvement(self.optimization_loop_data_dict)  
+        fig = self.gp_visualizer.visualize_hypervolume_improvement(self.optimization_loop_data_dict)
+        self.export_figures.append(fig)  
 
-    def stopping_criterion(self, num_iteration: int, sc_hypervolume: ExpMAStoppingCriterion, sc_acq_value: ExpMAStoppingCriterion):
+    def visualize_parallel_coordinates_plot(self):
+        fig = self.gp_visualizer.visualize_parallel_coordinates_plot(self.multiobjective_model, self.results_dict)
+        self.export_figures.append(fig)
+
+    def stopping_criterion(self, num_iteration: int, sc_hypervolume: Extended_ExpMAStoppingCriterion):
 
         if sc_hypervolume.evaluate(torch.tensor(self.optimization_loop_data_dict[num_iteration+1]["hypervolume"])):
             return True
-        
-        if sc_acq_value.evaluate(torch.tensor(self.optimization_loop_data_dict[num_iteration+1]["acq_value"])):
-            return True
 
         return False
-
+    
 
 
 

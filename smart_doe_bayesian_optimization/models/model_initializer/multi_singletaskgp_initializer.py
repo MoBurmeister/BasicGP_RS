@@ -102,7 +102,7 @@ class MultiSingletaskGPInitializer(BaseModel):
 
     def reinitialize_model(self, initial_train_method: str = "no_retrain"):
         #function to reinitialize the model after new data has been added after each optimization iteration!
-        # TODO: Implementation of reinitiation scheduler - convergence or else
+        # TODO: Implementation of reinitiation scheduler - convergence or else for non historic datasets only?
         if not self.dataset_manager.historic_datasets:
             
             print(f"No historic data available. Model will be refined on the current newly added data!")
@@ -120,6 +120,10 @@ class MultiSingletaskGPInitializer(BaseModel):
                 raise ValueError("initial_train_method must be either 'no_retrain' or 'retrain'")
             if initial_train_method == "no_retrain":
                 print(f"Historic data is available. Mean and CovModule are taken and fixed right now. No maximization of MarginalLogLikelihood.")
+                #model is left as it is with initially initiated mean and cov_module
+                #datapoints will be added via condition_on_observations
+                
+
             
                
     #these two functions are only called once in the initial setup, afterwards the state_dict is used to transfer the knowledge!

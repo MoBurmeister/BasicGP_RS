@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from models.gp_model import BaseModel
 import itertools
+import pandas as pd
 
 
 
@@ -56,7 +57,8 @@ class GP_Visualizer:
             fig.delaxes(axes[idx])
 
         plt.tight_layout()
-        plt.show()
+        
+        return fig
 
     @staticmethod
     def visualize_hypervolume_improvement(optimization_data_dict: Dict):
@@ -74,13 +76,52 @@ class GP_Visualizer:
                 iterations.append(iteration)
                 acq_values.append(data["acq_value"])
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(iterations, acq_values, marker='o', linestyle='-', color='b')
-        plt.xlabel('Iteration')
-        plt.ylabel('Expected Hypervolume Improvement')
-        plt.title('Hypervolume Improvement over Iterations')
-        plt.grid(True)
-        plt.show()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(iterations, acq_values, marker='o', linestyle='-', color='b')
+        ax.set_xlabel('Iteration')
+        ax.set_ylabel('Expected Hypervolume Improvement')
+        ax.set_title('Hypervolume Improvement over Iterations')
+        ax.grid(True)
+
+        # Return the figure object
+        return fig
+        
+    @staticmethod
+    def visualize_parallel_coordinates_plot(multiobjective_model: BaseModel, results_dict: Dict):
+        # Extract necessary data
+        input_dim = multiobjective_model.dataset_manager.initial_dataset.input_dim # int
+        pareto_points = results_dict["pareto_points"]  # Tensor with shape ([n,d])
+        input_data = multiobjective_model.dataset_manager.initial_dataset.input_data # Tensor with shape ([n,d])
+        output_data = multiobjective_model.dataset_manager.initial_dataset.output_data # Tensor with shape ([n,d])
+
+        num_output_dim = output_data.shape[1]
+
+        # Create subplots
+        fig, axes = plt.subplots(num_output_dim, 1, figsize=(10, num_output_dim * 5), sharex=True)
+
+        # Loop over each output dimension
+        for i in range(num_output_dim):
+            # Combine input data and the i-th output dimension
+            combined_data = np.concatenate((input_data, output_data[:, i:i+1]), axis=1)
+            num_dimensions = combined_data.shape[1]
+
+            # Plot parallel coordinates
+            for point in combined_data:
+                axes[i].plot(range(num_dimensions), point, marker='o')
+            
+            axes[i].set_title(f'Parallel Coordinates Plot for Output Dimension {i+1}')
+            axes[i].set_xticks(range(num_dimensions))
+            axes[i].set_xticklabels([f'Input {j+1}' for j in range(input_dim)] + [f'Output {i+1}'])
+        
+        plt.tight_layout()
+        
+        return fig
+        
+
+
+
+        
+
         
 
         
