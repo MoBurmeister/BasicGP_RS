@@ -3,6 +3,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from models.gp_model import BaseModel
+import torch
 
 def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, results_dict: dict, fig_list,  folder_path: str, folder_name: str, file_format: str = "xlsx"):
     # Check for the correct file format
@@ -45,5 +46,9 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
         fig.savefig(fig_path)
         plt.close(fig)  # Close the figure to free memory
         print(f"Figure {i+1} saved to {fig_path}")
+
+    # Save the state_dict of the model
+    state_dict_path = os.path.join(full_folder_path, f"{folder_name}_model_state_dict.pth")
+    torch.save(multiobjective_model.state_dict(), state_dict_path)
 
     print(f"All figures saved to {full_folder_path}")
