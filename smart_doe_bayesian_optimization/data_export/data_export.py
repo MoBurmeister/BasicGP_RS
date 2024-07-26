@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from models.gp_model import BaseModel
 import torch
+import pickle
 
 def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, results_dict: dict, fig_list,  folder_path: str, folder_name: str, file_format: str = "xlsx"):
     # Check for the correct file format
@@ -49,6 +50,19 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
 
     # Save the state_dict of the model
     state_dict_path = os.path.join(full_folder_path, f"{folder_name}_model_state_dict.pth")
-    torch.save(multiobjective_model.state_dict(), state_dict_path)
+    torch.save(multiobjective_model.gp_model.state_dict(), state_dict_path)
+
+    # Save initial dataset as pickle
+    dataset_dict = {
+        'identifier': multiobjective_model.dataset_manager.initial_dataset.identifier,
+        'input_data': input_data,
+        'output_data': output_data,
+        'bounds': multiobjective_model.dataset_manager.initial_dataset.bounds_list,
+        'maximization_flags': multiobjective_model.dataset_manager.initial_dataset.maximization_flags,
+    }
+
+    pickle_path = os.path.join(full_folder_path, f"{folder_name}_dataset.pkl")
+    with open(pickle_path, 'wb') as f:
+        pickle.dump(dataset_dict, f)
 
     print(f"All figures saved to {full_folder_path}")

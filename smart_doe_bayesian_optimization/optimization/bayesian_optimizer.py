@@ -237,7 +237,6 @@ class BayesianOptimizer:
         self.visualize_parallel_coordinates_plot()
         self.visualize_pareto_front()
 
-
         #print(f"Optimization data dictionary: {self.optimization_loop_data_dict}")
 
         #print(f"Results dictionary: {self.results_dict}")
@@ -250,7 +249,7 @@ class BayesianOptimizer:
         
         folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export")
 
-        # Export the optimization data dictionary
+        # Export everything via function
         export_everything(multiobjective_model=self.multiobjective_model, optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, fig_list=self.export_figures, folder_path=folder_path, folder_name=folder_name, file_format="xlsx")
         print(f"Optimization data exported to folder in path: {folder_path}")
 
