@@ -66,3 +66,23 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
         pickle.dump(dataset_dict, f)
 
     print(f"All figures saved to {full_folder_path}")
+
+def export_only_in_out_data(input_data: torch.Tensor, output_data: torch.Tensor, folder_path: str, folder_name: str):
+
+    # Create the folder if it doesn't exist
+    full_folder_path = os.path.join(folder_path, folder_name)
+    os.makedirs(full_folder_path, exist_ok=True)
+    
+    # Define the file path for the Excel file
+    file_path = os.path.join(full_folder_path, f"{folder_name}_results.xlsx")
+
+    input_data = input_data.numpy() #shape: Tensor of shape (n, d)
+    output_data = output_data.numpy() #shape: Tensor of shape (n, d)
+
+    input_df = pd.DataFrame(input_data)
+    output_df = pd.DataFrame(output_data)
+
+    # Save the DataFrames to Excel
+    with pd.ExcelWriter(file_path, engine='xlsxwriter') as writer:
+        input_df.to_excel(writer, sheet_name='Input Data')
+        output_df.to_excel(writer, sheet_name='Output Data')
