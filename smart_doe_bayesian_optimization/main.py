@@ -17,6 +17,8 @@ from data.constraint_factory import WeldingConstraints
 from botorch.test_functions.multi_objective import WeldedBeam
 from botorch import fit_gpytorch_mll
 from botorch.optim import gen_batch_initial_conditions
+from data_export.data_export import export_only_in_out_data
+
 
 '''
 Important bevore running an optimization:
@@ -43,10 +45,9 @@ print(50*"-")
 # #reference point handed over as negative values!
 # bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64))
 
-# bayesian_optimizer.optimization_loop(num_max_iterations=50)
+# bayesian_optimizer.optimization_loop(num_max_iterations=15)
 
-# print(bayesian_optimizer.multiobjective_model.dataset_manager.initial_dataset.input_data)
-# print(bayesian_optimizer.multiobjective_model.dataset_manager.initial_dataset.output_data)
+
 
 #########
 
@@ -71,13 +72,16 @@ laser_hardening = FunctionFactory
 
 main_dataset = DataManager(dataset_func=laser_hardening.laser_heat_treatment)
 
-main_dataset.load_initial_dataset(num_datapoints=11, bounds=[(50, 150), (0.00333333, 0.00333333), (0.001, 0.001)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
-
 #main_dataset.load_initial_dataset(num_datapoints=1500, bounds=[(20, 400), (200e-3 / 60, 3000e-3 / 60), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
-print(main_dataset.initial_dataset.input_data)
+main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(20, 400), (200e-3, 3000e-3), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
-print(main_dataset.initial_dataset.output_data)
+export_only_in_out_data(main_dataset.initial_dataset.input_data, main_dataset.initial_dataset.output_data, folder_path="smart_doe_bayesian_optimization\data_export\multi_singletaskgp_data_export", folder_name="TESTTEST_datasets")
+
+
+# print(main_dataset.initial_dataset.input_data)
+
+# print(main_dataset.initial_dataset.output_data)
 
 # multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
 

@@ -3,6 +3,7 @@ from typing import Callable, List, Tuple
 from utils.checking_utils import check_type, check_dataset_shape, check_dataset_same_size
 from data.dataset import Dataset
 import pickle
+import os
 
 class DataManager:
 
@@ -32,11 +33,11 @@ class DataManager:
         self.dtype = dtype
         self.maximization_flags = []
     
-    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], sampling_method: str = "grid", noise_level: float = 0.0):
+    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], sampling_method: str = "grid", noise_level: float = 0.0, identifier:int=None):
         '''
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         '''
-        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level)
+        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level, identifier)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
@@ -53,8 +54,16 @@ class DataManager:
         # each historic dataset itself carries a one model per objective? The model is then defined by cov module and mean? Or more the cov matrix
         # the historic datasets should rather probably just carry the data points, bounds etc. Initializ model here? 
         # Load the historic dataset from the pickle file
-        with open(dataset_path, 'rb') as f:
-            historic_dict_list = pickle.load(f)
+
+        historic_dict_list = []
+
+        # Iterate through all files in the directory
+        for filename in os.listdir(dataset_path):
+            if filename.endswith('.pkl') or filename.endswith('.pickle'):
+                file_path = os.path.join(dataset_path, filename)
+                with open(file_path, 'rb') as f:
+                    dataset = pickle.load(f)
+                    historic_dict_list.append(dataset)
 
         for hist_dataset in historic_dict_list:
             transformed_dataset = self.historic_data_loader.load_dataset(hist_dataset)
@@ -111,7 +120,7 @@ class InitialDataLoader:
     def __init__(self, dtype: torch.dtype = torch.float64):
         self.dtype = dtype
 
-    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0) -> Dataset:
+    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0, identifier: int =None) -> Dataset:
         """
         Load a dataset using the specified dataset function and parameters.
         Important: bounds are provided as a touple here, need to be converted into correct ([2, d]) shape via the convert_bounds_to_tensor function.
@@ -154,7 +163,7 @@ class InitialDataLoader:
         if noise_level > 0:
             outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
 
-        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags)
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
 
         return initial_datset
 
