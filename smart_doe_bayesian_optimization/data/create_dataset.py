@@ -4,6 +4,8 @@ from utils.checking_utils import check_type, check_dataset_shape, check_dataset_
 from data.dataset import Dataset
 import pickle
 import os
+import numpy as np
+from scipy.stats import qmc
 
 class DataManager:
 
@@ -140,9 +142,12 @@ class InitialDataLoader:
         """
         
         num_datapoints = num_datapoints
+        num_dimensions = len(bounds)
 
-        if sampling_method not in ['random', 'grid']:
-            raise ValueError("Sampling method must be 'random' or 'grid'.")
+        if sampling_method not in ['random', 'grid', 'LHS']:
+            raise ValueError("Sampling method must be 'random', 'grid' or 'LHS'.")
+
+        print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
 
         inputs = []
         if sampling_method == "random":
@@ -153,6 +158,13 @@ class InitialDataLoader:
             for touple in bounds:
                 inputs.append(torch.linspace(touple[0], touple[1], steps=num_datapoints))
             inputs = torch.stack(inputs, dim=1)
+        elif sampling_method == "LHS":
+            sampler = qmc.LatinHypercube(d=num_dimensions)
+            samples = sampler.random(n=num_datapoints)
+            lower_bounds, upper_bounds = zip(*bounds)
+            scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
+            inputs = torch.tensor(scaled_samples)
+
 
         bounds_tensor = self.convert_bounds_to_tensor(bounds)
 

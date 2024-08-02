@@ -30,11 +30,13 @@ Important bevore running an optimization:
 
 print(50*"-")
 
-# vehicle_crash = FunctionFactory
+vehicle_crash = FunctionFactory
 
-# main_dataset = DataManager(dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
+main_dataset = DataManager(dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
 
-# main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"])
+main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="LHS")
+
+print(main_dataset.initial_dataset.input_data)
 
 # multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
 
@@ -68,15 +70,15 @@ print(50*"-")
 # bayesian_optimizer.optimization_loop(num_iterations=100)
 
 
-laser_hardening = FunctionFactory
+# laser_hardening = FunctionFactory
 
-main_dataset = DataManager(dataset_func=laser_hardening.laser_heat_treatment)
+# main_dataset = DataManager(dataset_func=laser_hardening.laser_heat_treatment)
 
-#main_dataset.load_initial_dataset(num_datapoints=1500, bounds=[(20, 400), (200e-3 / 60, 3000e-3 / 60), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
+# #main_dataset.load_initial_dataset(num_datapoints=1500, bounds=[(20, 400), (200e-3 / 60, 3000e-3 / 60), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
-main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(20, 400), (200e-3, 3000e-3), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
+# main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(20, 400), (200e-3, 3000e-3), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
-export_only_in_out_data(main_dataset.initial_dataset.input_data, main_dataset.initial_dataset.output_data, folder_path="smart_doe_bayesian_optimization\data_export\multi_singletaskgp_data_export", folder_name="TESTTEST_datasets")
+# export_only_in_out_data(main_dataset.initial_dataset.input_data, main_dataset.initial_dataset.output_data, folder_path="smart_doe_bayesian_optimization\data_export\multi_singletaskgp_data_export", folder_name="TESTTEST_datasets")
 
 
 # print(main_dataset.initial_dataset.input_data)

@@ -83,6 +83,17 @@ class BayesianOptimizer:
             print(f"Reference Point calculated: {reference_point}")
 
             return reference_point
+    
+    def update_reference_point(self):
+
+        new_ref_point = self.calculate_reference_point()
+
+        # Check if any element of the new reference point is "worse" than the old one
+        if torch.any(new_ref_point < self.reference_point):
+            self.reference_point = new_ref_point
+            print(f"Reference Point updated to: {self.reference_point}")
+        else:
+            print("New Reference Point is not worse than the current one. No update performed.")
 
     def optimization_iteration(self, iteration_num: int):
         #in the first stage I will only incorporate the qnehvi acquisition function
@@ -98,7 +109,9 @@ class BayesianOptimizer:
         Since botorch assumes a maximization of all objectives, we seek to find the Pareto frontier, 
         the set of optimal trade-offs where improving one metric means deteriorating another.
         '''
+
         self.validate_output_constraints()
+
         # TODO: Should I input more arguments?
         acq_function = qNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
                                                             ref_point=self.reference_point, 
@@ -176,7 +189,7 @@ class BayesianOptimizer:
     Hypervolume improvement quantifies how much the hypervolume would increase if a new point (or set of points) 
     were added to the current Pareto front.
     '''
-    def optimization_loop(self, num_max_iterations: int = 10):
+    def optimization_loop(self, use_stopping_criterion: bool = False, num_max_iterations: int = 10):
 
         #calculate and add initial hypervolume:
         initial_hypervolume = self.calculate_hypervolume()
@@ -185,7 +198,8 @@ class BayesianOptimizer:
 
         #initiating stopping criterion classes
         #set minimize to false, if considered measurement is maximized (e.g. hypervolume)
-        stopping_criterion_hypervolume = Extended_ExpMAStoppingCriterion(minimize=False, n_window=15, eta=1.0, rel_tol=1e-6)
+        if use_stopping_criterion:
+            stopping_criterion_hypervolume = Extended_ExpMAStoppingCriterion(minimize=False, n_window=15, eta=1.0, rel_tol=1e-6)
 
         start_time = time.time()
 
@@ -202,7 +216,7 @@ class BayesianOptimizer:
 
             self.optimization_loop_data_dict[iteration+1]["iteration_duration"] = iteration_duration
         
-            print(f"Iteration {iteration + 1} completed. It took {iteration_duration:.2f} seconds.")
+            print(f"Iteration {iteration + 1} of {num_max_iterations} iterations completed. It took {iteration_duration:.2f} seconds.")
 
             #Modulo to potentially adjust computationally expensive calculation of the hypervolume
             if iteration % 1 == 0:
@@ -210,12 +224,17 @@ class BayesianOptimizer:
                 self.optimization_loop_data_dict[iteration+1]["hypervolume"] = hypervolume
                 print(f"Final Hypervolume: {hypervolume}")
 
-            if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume):
-                print(f"Stopping criterion reached after {iteration + 1} iterations. Breaking the optimization loop.")
-                break
+            #Check to update reference point every 10 iterations
+            if iteration % 10 == 0:
+                self.update_reference_point()
+
+            if use_stopping_criterion:
+                if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume):
+                    print(f"Stopping criterion reached after {iteration + 1} iterations. Breaking the optimization loop.")
+                    break
             
             #add moving average values, but these exists only after window size of ma is reached, therefore if else check - prob not b.p.
-            if stopping_criterion_hypervolume.ma_values:
+            if use_stopping_criterion and stopping_criterion_hypervolume.ma_values:
                 self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_value"] = stopping_criterion_hypervolume.ma_values[-1]
                 self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = stopping_criterion_hypervolume.rel_values[-1]
             else:
