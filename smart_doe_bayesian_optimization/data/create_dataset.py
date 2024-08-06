@@ -9,10 +9,11 @@ from scipy.stats import qmc
 
 class DataManager:
 
-    def __init__(self, dataset_func: Callable, dtype: torch.dtype = torch.float64):
+    def __init__(self, external_input: bool, dataset_func: Callable = None, dtype: torch.dtype = torch.float64):
         self.historic_data_loader = HistoricDataLoader(dtype=dtype)
         self.initial_data_loader = InitialDataLoader(dtype=dtype)
         self.dataset_func = dataset_func
+        self.external_input = external_input
         self.input_dim = None
         self.output_dim = None
         self.initial_dataset = None
@@ -39,13 +40,18 @@ class DataManager:
         '''
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         '''
-        initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level, identifier)
+        self.input_parameter_name = input_parameter_name
+        self.output_parameter_name = output_parameter_name
+
+        if self.external_input:
+            initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, identifier=identifier)
+        else:
+            initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level, identifier)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
         self.set_check_maximization_flags(dataset=initial_dataset)
-        self.input_parameter_name = input_parameter_name
-        self.output_parameter_name = output_parameter_name
+        
         print("Initial dataset added (and old one discarded):")
         print(f"Number of datapoints: {self.initial_dataset.input_data.shape[0]}")
         print(f"Number of input dimensions: {self.initial_dataset.input_data.shape[1]}")
@@ -178,8 +184,49 @@ class InitialDataLoader:
         initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
 
         return initial_datset
+    
+
+    def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], identifier: int=None):
+
+        #just LHS supported due to scientific literature
+
+        print(f"Dataset is created manually based on LHS sampling.")
+
+        num_datapoints = num_datapoints
+        num_dimensions = len(bounds)
+        num_outputs = len(maximization_flags)
+
+        print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
+
+        sampler = qmc.LatinHypercube(d=num_dimensions)
+        samples = sampler.random(n=num_datapoints)
+        lower_bounds, upper_bounds = zip(*bounds)
+        scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
+        inputs = torch.tensor(scaled_samples)
+
+        print(f"Input values are: {inputs}")
+
+        bounds_tensor = self.convert_bounds_to_tensor(bounds)
+
+        # Collect user inputs for each input point
+        outputs_list = []
+        for i, input_point in enumerate(inputs):
+            print(f"Input point {i + 1}/{num_datapoints}: {input_point.tolist()}")
+            output_values = []
+            for j in range(num_outputs):
+                output_value = float(input(f"Enter the output value for the objective {output_parameter_name[j]} for this input point: "))
+                output_values.append(output_value)
+            outputs_list.append(output_values)
 
 
+        # Convert the collected outputs into a tensor
+        outputs = torch.tensor(outputs_list).reshape(num_datapoints, num_outputs)
+
+        initial_dataset = Dataset(input_data=inputs, output_data=outputs, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
+
+        return initial_dataset
+
+    
     def convert_bounds_to_tensor(self, bounds: List[Tuple[float, float]]) -> torch.Tensor:
         """
         Convert a list of bounds (min, max) into a tensor with shape [2, d].

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from models.gp_model import BaseModel
 from botorch.acquisition.multi_objective.monte_carlo import qNoisyExpectedHypervolumeImprovement
+from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
 import torch
 from botorch.optim import optimize_acqf
 from typing import Callable, Optional, List
@@ -12,9 +13,7 @@ from data_export.data_export import export_everything
 from datetime import datetime  
 import os
 from optimization.stopping_criterion import Extended_ExpMAStoppingCriterion
-
-
-# TODO: Implementation of parameter_constraints
+import numpy as np
 
 class BayesianOptimizer:
 
@@ -25,8 +24,7 @@ class BayesianOptimizer:
         parameter_constraints_inequality: Optional[Callable] = None,
         parameter_constraints_nonlinear_inequality: Optional[Callable] = None,
         output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
-        reference_point: Optional[torch.Tensor] = None,
-        external_input: bool = False
+        reference_point: Optional[torch.Tensor] = None
     ) -> None:
         self.multiobjective_model = multiobjective_model
         if reference_point is not None:
@@ -35,15 +33,15 @@ class BayesianOptimizer:
         else:
             self.reference_point = self.calculate_reference_point()
 
-        # TODO: Check for the correct setup of the constraints? Necessary? is already checked in botorch implementation?
-
+        # No implementation of constraints yet
         self.parameter_constraints_equality = parameter_constraints_equality
         self.parameter_constraints_inequality = parameter_constraints_inequality
         self.parameter_constraints_nonlinear_inequality = parameter_constraints_nonlinear_inequality    
+
         self.output_constraints = output_constraints
         self.next_input_setting = None
         self.next_observation = None
-        self.external_input = external_input
+        self.external_input = multiobjective_model.dataset_manager.external_input
         self.gp_visualizer = GP_Visualizer()
         #stores: hypervolume, acq_value, iteration_duration, stopping criterion ma_values for hypervolume and acq_value
         self.optimization_loop_data_dict = {}
@@ -112,15 +110,14 @@ class BayesianOptimizer:
 
         self.validate_output_constraints()
 
-        # TODO: Should I input more arguments?
-        acq_function = qNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
+        acq_function = qLogNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
                                                             ref_point=self.reference_point, 
                                                             X_baseline=self.multiobjective_model.dataset_manager.initial_dataset.input_data,
                                                             constraints=self.output_constraints, 
                                                             prune_baseline=True)
         
         # TODO: what about num_restarts and raw_samples?
-        # here implementation of input constraints
+        # here implementation of input constraints but not supported yet!
         candidate, acq_value = optimize_acqf(
             acq_function=acq_function,
             bounds=self.multiobjective_model.dataset_manager.initial_dataset.bounds_list,
@@ -141,7 +138,10 @@ class BayesianOptimizer:
 
         if self.external_input:
             print("External input is set to True. Target Observation is provided manually.")
-            raise ValueError("External input not supported yet!")
+            
+            self.get_next_manual_observation()
+
+            #get next input here manually, ckeck that it is negated according to max flags etc.
         else:
             print("External input is set to False. Target Observation is not provided manually and instead via function internally.")
             self.get_next_observation()
@@ -184,6 +184,46 @@ class BayesianOptimizer:
         self.next_observation = next_observation
 
         print(f"Next observation: {self.next_observation}")  
+    
+    def get_next_manual_observation(self):
+        
+        next_observation = []
+
+        # Gather the number of outputs (objectives) from the model's dataset manager
+        num_outputs = self.multiobjective_model.dataset_manager.output_dim
+
+        # Gather maximization flags
+        maximization_flags = self.multiobjective_model.dataset_manager.maximization_flags
+
+        # Placeholder for output parameter names
+        output_parameter_names = self.multiobjective_model.dataset_manager.output_parameter_name
+
+        print("Please provide the output values for the given input manually.")
+
+        # Loop to get the output values for each objective from the user
+        output_values = []
+        for j in range(num_outputs):
+            while True:
+                try:
+                    output_value = float(input(f"Enter the output value for the objective '{output_parameter_names[j]}' for this input point: "))
+                    break
+                except ValueError:
+                    print("Invalid input. Please enter a numeric value.")
+            output_values.append(output_value)
+        
+        next_observation.append(output_values)
+
+        # Convert the list to a torch tensor and reshape it to [1, num_outputs]
+        next_observation = torch.tensor(output_values).view(1, num_outputs)
+
+        # Negate the values in next_observation for dimensions where the maximization flag is False
+        for i, flag in enumerate(maximization_flags):
+            if not flag:
+                next_observation[:, i] = -next_observation[:, i]
+
+        self.next_observation = next_observation
+
+        print(f"Next manual observation: {self.next_observation}")
 
     '''
     Hypervolume improvement quantifies how much the hypervolume would increase if a new point (or set of points) 

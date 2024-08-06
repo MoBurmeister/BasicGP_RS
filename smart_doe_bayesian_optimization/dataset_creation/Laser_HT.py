@@ -21,8 +21,8 @@ k = lambda_th/(rho*c_p) # Thermal Diffusivity
 
 # Parameter für Temperatur
 T_start = 298 # Raumtemperatur in K
-T_Haerten = 1010+273 # Zieltemperatur für Härten in K + ca. 20-40K Obergrenze
-# also: 1323 max
+T_Haerten = 1010+273+20 # Zieltemperatur für Härten in K + ca. 20-40K Obergrenze
+# also: 1303 max
 
 # T_Lösungsglühen = 800+273 für AlSi10Mg
 
@@ -36,9 +36,9 @@ z = 0 # hier kann eingestellt werden, ob Temperatur an Oberfläche oder in besti
 t = np.logspace(-6, 6, resolution) # Zeitliche Parameter
 
 # Laserparameter --> das hier sind die Eingangsgrößen, die wir varrieren können
-laser_pwr = [50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]   # Laserleistung (W); min 20; max 400
-laser_speed = 0.00333333#0.015 #200e-3 / 60  # Verfahrgeschwindigkeit (m/s); min 200 mm/s; max 3000 mm/s
-laser_width = 0.001#3.1225e-04#500e-6  # Strahldurchmesser (m); min 83µm, max 1000µm (ggf. geht auch noch mehr)
+laser_pwr = [349.4612]   # Laserleistung (W); min 20; max 400
+laser_speed = 0.2 #0.015 #200e-3 / 60  # Verfahrgeschwindigkeit (m/s); min 200 mm/s; max 3000 mm/s
+laser_width = 0.000686#3.1225e-04#500e-6  # Strahldurchmesser (m); min 83µm, max 1000µm (ggf. geht auch noch mehr)
 
 # # Berechnung von Fokusabstand --> nur für Einstellung der Anlage notwendig, nicht relevant für die Simulation
 # def berechne_fokusabstand(w, w0, zR):
@@ -83,12 +83,23 @@ for laser_power in laser_pwr:
         j = 0
 
     T_verlauf = T[:, int(abs((y_start - y_end) / dy) / 2)]
-    print("T_max = ", T.max() - (1010+273), "°C")
+    print("T_max = ", T.max(), "°C")
+    print("T_diff = ", T.max() - T_Haerten, "°C")
 
 
 
-    T_Haerten = sum(1 for k in range(int(abs((x_start - x_end) / dx))) if T_verlauf[k] > T_Haerten) * (dx / laser_speed)
-    print("t (Härten) =", T_Haerten)
+    #time_haerten = sum(1 for k in range(int(abs((x_start - x_end) / dx))) if T_verlauf[k] > T_Haerten) * (dx / laser_speed)
+
+    # Calculate the number of steps where the temperature exceeds T_Haerten
+    steps_above_threshold = sum(1 for k in range(int(abs((x_start - x_end) / dx))) if T_verlauf[k] > T_Haerten)
+
+    # Print the number of steps
+    print(f"Number of steps where temperature exceeds T_Haerten: {steps_above_threshold}")
+
+    # Calculate the hardening time
+    time_haerten = steps_above_threshold * (dx / laser_speed)
+    print(int(abs((x_start - x_end) / dx)))
+    print("t (Härten) =", time_haerten)
 
     
 
