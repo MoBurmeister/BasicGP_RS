@@ -154,32 +154,34 @@ class InitialDataLoader:
             raise ValueError("Sampling method must be 'random', 'grid' or 'LHS'.")
 
         print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
-
+        
         inputs = []
-        if sampling_method == "random":
-            for touple in bounds:
-                inputs.append(torch.rand(num_datapoints) * (touple[1] - touple[0]) + touple[0])
-            inputs = torch.stack(inputs, dim=1)
-        elif sampling_method == "grid":
-            for touple in bounds:
-                inputs.append(torch.linspace(touple[0], touple[1], steps=num_datapoints))
-            inputs = torch.stack(inputs, dim=1)
-        elif sampling_method == "LHS":
-            sampler = qmc.LatinHypercube(d=num_dimensions)
-            samples = sampler.random(n=num_datapoints)
-            lower_bounds, upper_bounds = zip(*bounds)
-            scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
-            inputs = torch.tensor(scaled_samples)
 
+        if num_datapoints == 0:
+            inputs = torch.tensor([], dtype=torch.float64).reshape(0, num_dimensions)
+            output = torch.tensor([], dtype=torch.float64).reshape(0, len(maximization_flags))
+        else:
+            if sampling_method == "random":
+                for touple in bounds:
+                    inputs.append(torch.rand(num_datapoints) * (touple[1] - touple[0]) + touple[0])
+                inputs = torch.stack(inputs, dim=1)
+            elif sampling_method == "grid":
+                for touple in bounds:
+                    inputs.append(torch.linspace(touple[0], touple[1], steps=num_datapoints))
+                inputs = torch.stack(inputs, dim=1)
+            elif sampling_method == "LHS":
+                sampler = qmc.LatinHypercube(d=num_dimensions)
+                samples = sampler.random(n=num_datapoints)
+                lower_bounds, upper_bounds = zip(*bounds)
+                scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
+                inputs = torch.tensor(scaled_samples)
 
-        bounds_tensor = self.convert_bounds_to_tensor(bounds)
+            output, _ = dataset_func(inputs)
 
-        # TODO: do I still later need this _?
+            if noise_level > 0:
+                output = self.add_noise(outputs=output, noise_level=noise_level)
 
-        output, _ = dataset_func(inputs)
-
-        if noise_level > 0:
-            outputs = self.add_noise(outputs=outputs, noise_level=noise_level)
+        bounds_tensor = self.convert_bounds_to_tensor(bounds)        
 
         initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
 

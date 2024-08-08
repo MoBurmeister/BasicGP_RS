@@ -43,12 +43,21 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         #this setups the gp list in a basic fashion
 
+        if self.dataset_manager.initial_dataset.num_datapoints == 0:
+            #otherwise error in initalization. When first data is available: Normalize and Standardize the data
+            input_transform = None
+            output_transform = None
+        else:
+            input_transform=Normalize(d=self.dataset_manager.initial_dataset.input_dim)
+            #m=1 here, since one GP is initialized per objective!
+            output_transform=Standardize(m=1)
+
         # TODO: additional Parameter setup needed here?
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
                                      train_Y=self.dataset_manager.initial_dataset.output_data[:, objective].unsqueeze(1),
-                                     input_transform=Normalize(d=self.dataset_manager.initial_dataset.input_dim), 
-                                     outcome_transform=Standardize(m=1))
+                                     input_transform=input_transform, 
+                                     outcome_transform=output_transform)
 
             if self.transfer_learning_method == "initial_transfer" or self.transfer_learning_method == "transfer_and_retrain":
                 print(f"Objective {objective + 1}:")

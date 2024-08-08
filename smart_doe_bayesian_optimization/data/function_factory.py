@@ -25,6 +25,10 @@ This also holds true for the output, it needs to be in the shape of ([n, d])
 '''
 
 class FunctionFactory:
+
+    def __init__(self, variation_factor=0.0):
+        self.variation_factor = variation_factor
+
     @staticmethod
     def check_dimensions(inputs, expected_shape):
         """
@@ -222,7 +226,7 @@ class FunctionFactory:
 
         return outputs, expected_output_shape
     
-    def generate_car_crash_synthetic_data(outputs, variation_factor=0.0):
+    def generate_car_crash_synthetic_data(self, outputs):
         '''
         Generate synthetic data for the vehicle safety design function.
         Variation factor is used to introduce noise to the data. It is a factor that is multiplied with the coefficients of the function.
@@ -274,7 +278,7 @@ class FunctionFactory:
         ]
         
         # Apply variation to coefficients
-        varied_coeffs = [coeff * (1 + variation_factor) for coeff in base_coeffs]
+        varied_coeffs = [coeff * (1 + self.variation_factor) for coeff in base_coeffs]
         
         outputs = evaluate_true(outputs, varied_coeffs)
         expected_output_shape = 3

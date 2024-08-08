@@ -30,26 +30,26 @@ Important bevore running an optimization:
 
 print(50*"-")
 
-vehicle_crash = FunctionFactory
+vehicle_crash = FunctionFactory(variation_factor=0.0)
 
-main_dataset = DataManager(external_input=True)
+main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
 
-main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="LHS")
+main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="grid")
 
 print(main_dataset.initial_dataset.input_data)
 
 print(main_dataset.initial_dataset.output_data)
 
-multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
+multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer")
 
 multisingletaskgp.initially_setup_model()    
 
 multisingletaskgp.train_initially_gp_model()
 
-#reference point handed over as negative values!
+# #reference point handed over as negative values!
 bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64))
 
-bayesian_optimizer.optimization_loop(num_max_iterations=15)
+bayesian_optimizer.optimization_loop(num_max_iterations=30)
 
 
 
