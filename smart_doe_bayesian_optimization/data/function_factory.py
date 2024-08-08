@@ -110,8 +110,8 @@ class FunctionFactory:
         def simulate_laser_heating(laser_power, laser_speed, laser_width, lambda_th, c_p, alpha, rho, T_Haerten):
             
             resolution = 10000
-            x_start, x_end, dx = -0.02, 0.01, 0.001
-            y_start, y_end, dy = -0.005, 0.005, 0.001
+            x_start, x_end, dx = -0.0005, 0.0005, 0.00001
+            y_start, y_end, dy = -0.0005, 0.0005, 0.00001
             z = 0  # Surface temperature calculation
             t = torch.logspace(-6, 6, resolution, dtype=torch.float64)  # Time parameters
 
@@ -125,12 +125,13 @@ class FunctionFactory:
 
             for i, x1 in enumerate(x_range):
                 for j, y1 in enumerate(y_range):
-                    T[i, j] = Temp_fkt(x1, y1, z, laser_power, laser_speed, laser_width, alpha, lambda_th, rho, c_p, k, t)
+
+                    T[i, j] = T_start + Temp_fkt(x1, y1, z, laser_power, laser_speed, laser_width, alpha, lambda_th, rho, c_p, k, t)
 
             T_verlauf = T[:, len(y_range) // 2]
-            T_max = T.max().item() - 273
+            T_max = T.max().item() 
 
-            t_max_allowed = 2283
+            t_max_allowed = 1010 + 40 + 273
 
             t_diff = abs(T_max - t_max_allowed)
 
