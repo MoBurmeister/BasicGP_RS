@@ -30,29 +30,26 @@ Important bevore running an optimization:
 
 print(50*"-")
 
+vehicle_crash = FunctionFactory(variation_factor=0.0)
 
+main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
 
+main_dataset.load_initial_dataset(num_datapoints=0, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="grid")
 
-# vehicle_crash = FunctionFactory(variation_factor=0.0)
+print(main_dataset.initial_dataset.input_data)
 
-# main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
+print(main_dataset.initial_dataset.output_data)
 
-# main_dataset.load_initial_dataset(num_datapoints=10, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="grid")
+multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer")
 
-# print(main_dataset.initial_dataset.input_data)
+multisingletaskgp.initially_setup_model()    
 
-# print(main_dataset.initial_dataset.output_data)
+#multisingletaskgp.train_initially_gp_model()
 
-# multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer")
+# #reference point handed over as negative values!
+bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_0_0")
 
-# multisingletaskgp.initially_setup_model()    
-
-# multisingletaskgp.train_initially_gp_model()
-
-# # #reference point handed over as negative values!
-# bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64))
-
-# bayesian_optimizer.optimization_loop(num_max_iterations=30)
+bayesian_optimizer.optimization_loop(num_max_iterations=5, num_min_iterations=1)
 
 
 
@@ -75,20 +72,20 @@ print(50*"-")
 # bayesian_optimizer.optimization_loop(num_iterations=100)
 
 
-laser_hardening = FunctionFactory
+#laser_hardening = FunctionFactory
 
-main_dataset = DataManager(external_input=False, dataset_func=laser_hardening.laser_heat_treatment)
+#main_dataset = DataManager(external_input=False, dataset_func=laser_hardening.laser_heat_treatment)
 
 # #main_dataset.load_initial_dataset(num_datapoints=1500, bounds=[(20, 400), (200e-3 / 60, 3000e-3 / 60), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
-main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(20, 400), (200e-3, 3000e-3), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
+#main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(20, 400), (200e-3, 3000e-3), (83e-6, 1000e-6)], maximization_flags=[True, False], input_parameter_name=["laser_pwr", "laser_speed", "laser_width"], output_parameter_name=["hardening_time", "temp_div"], sampling_method="grid", noise_level=0)
 
 # export_only_in_out_data(main_dataset.initial_dataset.input_data, main_dataset.initial_dataset.output_data, folder_path="smart_doe_bayesian_optimization\data_export\multi_singletaskgp_data_export", folder_name="TESTTEST_datasets")
 
 
-print(main_dataset.initial_dataset.input_data)
+#print(main_dataset.initial_dataset.input_data)
 
-print(main_dataset.initial_dataset.output_data)
+#print(main_dataset.initial_dataset.output_data)
 
 # multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
 

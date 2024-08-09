@@ -24,7 +24,8 @@ class BayesianOptimizer:
         parameter_constraints_inequality: Optional[Callable] = None,
         parameter_constraints_nonlinear_inequality: Optional[Callable] = None,
         output_constraints: Optional[List[Callable[[torch.Tensor], torch.Tensor]]] = None,
-        reference_point: Optional[torch.Tensor] = None
+        reference_point: Optional[torch.Tensor] = None, 
+        save_file_name: Optional[str] = None
     ) -> None:
         self.multiobjective_model = multiobjective_model
         if reference_point is not None:
@@ -44,6 +45,7 @@ class BayesianOptimizer:
         self.next_input_setting = None
         self.next_observation = None
         self.external_input = multiobjective_model.dataset_manager.external_input
+        self.save_file_name = save_file_name
         self.gp_visualizer = GP_Visualizer()
         #stores: hypervolume, acq_value, iteration_duration, stopping criterion ma_values for hypervolume and acq_value
         self.optimization_loop_data_dict = {}
@@ -113,11 +115,18 @@ class BayesianOptimizer:
 
         self.validate_output_constraints()
 
+        if self.multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0] == 0:
+            prune_baseline_check = False
+            print(f"Initial dataset is empty. Prune baseline set to False.")
+        else:
+            prune_baseline_check = True
+            print(f"Initial dataset is not empty. Prune baseline set to True.")
+
         acq_function = qLogNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
                                                             ref_point=self.reference_point, 
                                                             X_baseline=self.multiobjective_model.dataset_manager.initial_dataset.input_data,
                                                             constraints=self.output_constraints, 
-                                                            prune_baseline=True)
+                                                            prune_baseline=prune_baseline_check)
         
         # TODO: what about num_restarts and raw_samples?
         # here implementation of input constraints but not supported yet!
@@ -263,7 +272,7 @@ class BayesianOptimizer:
 
             self.optimization_loop_data_dict[iteration+1]["iteration_duration"] = iteration_duration
         
-            print(f"Iteration {iteration + 1} of {num_max_iterations} iterations completed. It took {iteration_duration:.2f} seconds.")
+            print(f"Iteration {iteration + 1} of max. {num_max_iterations} iterations completed. It took {iteration_duration:.2f} seconds.")
 
             #Modulo to potentially adjust computationally expensive calculation of the hypervolume
             if iteration % 1 == 0:
@@ -272,7 +281,7 @@ class BayesianOptimizer:
                 print(f"Final Hypervolume: {hypervolume}")
 
             #Check to update reference point every 10 iterations. Potentially adjust the number 10. Also just update ref point when it is not handed over
-            if iteration % 10 == 0 and not self.reference_point_handed_over:
+            if iteration % 4 == 0 and not self.reference_point_handed_over:
                 self.update_reference_point()
 
             if use_stopping_criterion:
@@ -307,7 +316,7 @@ class BayesianOptimizer:
         current_date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Create a folder name based on the current date and time
-        folder_name = f"{current_date_time}_BOMOGP_TL_Optimization_Results"
+        folder_name = f"{current_date_time}_BOMOGP_TL_Optimization_Results_{self.save_file_name}"
         
         folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export")
 
