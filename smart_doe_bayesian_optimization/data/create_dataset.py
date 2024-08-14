@@ -9,11 +9,13 @@ from scipy.stats import qmc
 
 class DataManager:
 
-    def __init__(self, external_input: bool, dataset_func: Callable = None, dtype: torch.dtype = torch.float64):
-        self.historic_data_loader = HistoricDataLoader(dtype=dtype)
+    def __init__(self, external_input: bool, dataset_func: Callable = None, variation_factor: float = None, historic_data_path: str = None, dtype: torch.dtype = torch.float64):
+        self.historic_data_path = historic_data_path
+        self.historic_data_loader = HistoricDataLoader(historic_data_path = self.historic_data_path, dtype=dtype)
         self.initial_data_loader = InitialDataLoader(dtype=dtype)
         self.dataset_func = dataset_func
         self.external_input = external_input
+        self.variation_factor = variation_factor
         self.input_dim = None
         self.output_dim = None
         self.initial_dataset = None
@@ -32,7 +34,9 @@ class DataManager:
         },
         '''
 
-        self.historic_datasets = []
+        self.historic_modelinfo_list = []
+        self.historic_datasetinfo_list = []
+        self.historic_dataset_list = []
         self.dtype = dtype
         self.maximization_flags = []
     
@@ -58,32 +62,18 @@ class DataManager:
         print(f"Number of output dimensions: {self.initial_dataset.output_data.shape[1]}")
         print('-' * 50)
 
-    def load_historic_dataset(self, dataset_path: str):
-        # each historic dataset itself carries a one model per objective? The model is then defined by cov module and mean? Or more the cov matrix
-        # the historic datasets should rather probably just carry the data points, bounds etc. Initializ model here? 
-        # Load the historic dataset from the pickle file
+    def load_historic_data(self):
+        
+        if self.historic_data_path is None:
+            raise ValueError("No historic data path provided. Please provide a path to load historic data.")
 
-        historic_dict_list = []
+        #loads the three dicts from all historic optimization problems
+        model_info_list, dataset_info_list, dataset_list = self.historic_data_loader.load_modeldata()
 
-        # Iterate through all files in the directory
-        for filename in os.listdir(dataset_path):
-            if filename.endswith('.pkl') or filename.endswith('.pickle'):
-                file_path = os.path.join(dataset_path, filename)
-                with open(file_path, 'rb') as f:
-                    dataset = pickle.load(f)
-                    historic_dict_list.append(dataset)
-
-        for hist_dataset in historic_dict_list:
-            transformed_dataset = self.historic_data_loader.load_dataset(hist_dataset)
-            self.set_check_input_output_dim(transformed_dataset.input_dim, transformed_dataset.output_dim)
-            self.historic_datasets.append(transformed_dataset)
-            self.set_check_maximization_flags(dataset=transformed_dataset)
-            print(f"Historic dataset added:")
-            print(f"Identifier: {transformed_dataset.identifier}")
-            print(f"Number of datapoints: {transformed_dataset.input_data.shape[0]}")
-            print(f"Number of input dimensions: {transformed_dataset.input_data.shape[1]}")
-            print(f"Number of output dimensions: {transformed_dataset.output_data.shape[1]}")
-            print('-' * 50)
+        self.historic_modelinfo_list = model_info_list
+        self.historic_datasetinfo_list = dataset_info_list
+        self.historic_dataset_list = dataset_list
+        
 
     def add_point_to_initial_dataset(self, point: Tuple[torch.Tensor, torch.Tensor]):
         #Add a single point to the initial dataset
@@ -266,9 +256,12 @@ class InitialDataLoader:
         return outputs + noise_level * torch.randn_like(outputs)
    
 
+#The historic dataloader will load GPs from statedict historic data. It will also provide 
+
 class HistoricDataLoader:
     
     '''
+    OLD APPROACH (still here for consistency):
     Consideration of what needs to be transfered from the historic dataset to the new one:
     - input and output data
     - bounds
@@ -281,21 +274,28 @@ class HistoricDataLoader:
             - thought: point in time identifier not necessary, since the datapoints are just taken all as a whole and used to initialize the model. 
 
     Best solution will probably be to save it as a pickle file: dictionary structure can be used to save all the necessary information
-
-    For stage 1 i will just save the datasets as points
     '''
-    # TODO: Transfer Learning of the historic model with its parameters/data
-
-    def __init__(self, dtype: torch.dtype = torch.float64):
+    def __init__(self, historic_data_path: str, dtype: torch.dtype = torch.float64):
+        self.historic_data_path = historic_data_path
         self.dtype = dtype
 
-    def load_dataset(self, hist_dataset: dict) -> Dataset:
-        
-        identifier = hist_dataset['identifier']
-        input_data = hist_dataset['input_dataset']
-        output_data = hist_dataset['output_dataset']
-        bounds = hist_dataset['bounds']
-        maximization_flags = hist_dataset['maximization_flags']
+    def load_modeldata(self):
+        model_info_list = []
+        dataset_info_list = []
+        dataset_list = []
 
-        historic_dataset = Dataset(input_data=input_data, output_data=output_data, bounds=bounds, datamanager_type='historic', maximization_flags=maximization_flags, dtype=self.dtype, identifier=identifier)
-        return historic_dataset
+        # Iterate over all files in the directory
+        for filename in os.listdir(self.historic_data_path):
+            if filename.endswith(".pkl"):  # Only process pickle files
+                file_path = os.path.join(self.historic_data_path, filename)
+                
+                # Load the pickle file
+                with open(file_path, 'rb') as file:
+                    combined_dict = pickle.load(file)
+                    
+                    # Extract the dictionaries and append to the respective lists
+                    model_info_list.append(combined_dict['model_info'])
+                    dataset_info_list.append(combined_dict['dataset_info'])
+                    dataset_list.append(combined_dict['dataset'])
+
+        return model_info_list, dataset_info_list, dataset_list

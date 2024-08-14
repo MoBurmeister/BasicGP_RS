@@ -1,11 +1,8 @@
 import models
 import torch
-from models.kernel_factory import KernelFactory
 from gpytorch.priors import NormalPrior
-from models.likelihood_factory import LikelihoodFactory
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
-from models.optimizer_factory import OptimizerFactory
 import matplotlib.pyplot as plt
 from gpytorch.priors.torch_priors import GammaPrior
 from utils.config_parser_utils import config_parser
@@ -30,26 +27,33 @@ Important bevore running an optimization:
 
 print(50*"-")
 
-vehicle_crash = FunctionFactory(variation_factor=0.0)
 
-main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data)
 
-main_dataset.load_initial_dataset(num_datapoints=0, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="grid")
+variation_factor = 0.0
 
-print(main_dataset.initial_dataset.input_data)
+vehicle_crash = FunctionFactory(variation_factor=variation_factor)
 
-print(main_dataset.initial_dataset.output_data)
+main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data, historic_data_path="smart_doe_bayesian_optimization\\data_import\\test_data_import", variation_factor=variation_factor)
 
-multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer")
+main_dataset.load_initial_dataset(num_datapoints=1, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], sampling_method="LHS")
+
+main_dataset.load_historic_data()
+
+#print(main_dataset.initial_dataset.input_data)
+
+#print(main_dataset.initial_dataset.output_data)
+
+multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="transfer_and_retrain")
 
 multisingletaskgp.initially_setup_model()    
 
-#multisingletaskgp.train_initially_gp_model()
+multisingletaskgp.train_initially_gp_model()
 
 # #reference point handed over as negative values!
+
 bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_0_0")
 
-bayesian_optimizer.optimization_loop(num_max_iterations=5, num_min_iterations=1)
+bayesian_optimizer.optimization_loop(num_max_iterations=30, num_min_iterations=1)
 
 
 

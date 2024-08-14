@@ -22,13 +22,12 @@ class GP_Visualizer:
 
         pareto_points = results_dict["pareto_points"]
 
-        print(50*"-")
-        print(f"Pareto Points: {pareto_points}")
+        #print(f"Pareto Points: {pareto_points}")
         #If a flag is False, it indicates the corresponding output dimension should be minimized!
         #The method will negate the values in that output dimension.
         maximization_flags = multiobjective_model.dataset_manager.initial_dataset.maximization_flags
 
-        print(f"maximization Flags: {maximization_flags}")
+        #print(f"maximization Flags: {maximization_flags}")
 
         # Create a copy to avoid modifying the original pareto_points
         reverted_pareto_points = pareto_points.clone()
@@ -37,7 +36,7 @@ class GP_Visualizer:
             if not flag:
                 reverted_pareto_points[:, i] = -reverted_pareto_points[:, i]
 
-        print(f"Reverted Pareto Points: {reverted_pareto_points}")
+        #print(f"Reverted Pareto Points: {reverted_pareto_points}")
 
         # Create pairwise scatter plots
         pairs = list(itertools.combinations(range(num_output_dim), 2))

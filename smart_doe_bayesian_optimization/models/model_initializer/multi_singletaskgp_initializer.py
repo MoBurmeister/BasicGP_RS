@@ -7,11 +7,13 @@ from botorch.models.transforms.input import Normalize
 from gpytorch.module import Module
 from gpytorch.means.mean import Mean
 from botorch.models.model_list_gp_regression import ModelListGP
+from botorch.optim.fit import fit_gpytorch_mll_torch
 from botorch.fit import fit_gpytorch_mll
 from gpytorch.mlls import ExactMarginalLogLikelihood, SumMarginalLogLikelihood
 from gpytorch.kernels import MaternKernel
 from typing import Literal
 import torch
+from torch.optim import Adam
 
 class MultiSingletaskGPInitializer(BaseModel):
     def __init__(self, dataset: DataManager, transfer_learning_method: Literal["no_transfer", "initial_transfer", "transfer_and_retrain"]):
@@ -20,6 +22,8 @@ class MultiSingletaskGPInitializer(BaseModel):
         self.transfer_parameter = None
         #string to clarify transfer learning method
         self.transfer_learning_method = transfer_learning_method
+        self.lr = 0.0001
+        self.step_limit = 10
     
     def initially_setup_model(self): 
         '''
@@ -30,9 +34,9 @@ class MultiSingletaskGPInitializer(BaseModel):
         '''
         #this code should be only run once, since it also calculates the parameters
 
-        historic_gp_model_means, historic_gp_model_covars = self.compute_prior_means_covar_list()
+        #historic_gp_model_means, historic_gp_model_covars = self.compute_prior_means_covar_list()
 
-        self.transfer_parameter = [historic_gp_model_means, historic_gp_model_covars]
+        #self.transfer_parameter = [historic_gp_model_means, historic_gp_model_covars]
 
         self.setup_model()
         
@@ -59,39 +63,44 @@ class MultiSingletaskGPInitializer(BaseModel):
                                      input_transform=input_transform, 
                                      outcome_transform=output_transform)
 
-            if self.transfer_learning_method == "initial_transfer" or self.transfer_learning_method == "transfer_and_retrain":
-                print(f"Objective {objective + 1}:")
-                print("Old Parameters:")
-                print(gp_model.mean_module.constant.item())
-                print(gp_model.covar_module.base_kernel.lengthscale.tolist())
-                print(50*"-")
-
-            historic_gp_model_means, historic_gp_model_covars = self.transfer_parameter
-
-            if historic_gp_model_covars or historic_gp_model_means:
-
-                if historic_gp_model_covars is None or historic_gp_model_means is None:
-                    raise ValueError("Both historic_gp_model_covars and historic_gp_model_means must be set.")
-            
-                gp_model.mean_module.constant = historic_gp_model_means[objective]
-                gp_model.covar_module = historic_gp_model_covars[objective]
-                
-                print("New Parameters:")
-                print(gp_model.mean_module.constant.item())
-                print(gp_model.covar_module.lengthscale.tolist())
-                print(50*"-")
-
-            else:
-                if self.transfer_learning_method == "no_transfer":
-                    print("No historic data available. Using default parameters.")
-                    print(50*"-")
-
             gp_model_list.append(gp_model)
 
         #star to unpack the modellist here
         gp_modellist = ModelListGP(*gp_model_list)
 
+        if self.transfer_learning_method == "initial_transfer" or self.transfer_learning_method == "transfer_and_retrain":
+            
+            old_state_dict = gp_modellist.state_dict()
+
+            print("Old Parameters of the initial GP:")
+            
+            self.print_model_parameter(old_state_dict)
+
+            updated_state_dict = self.update_old_statedict(old_state_dict=old_state_dict)
+
+            gp_modellist.load_state_dict(updated_state_dict)    
+
+            print("Parameter updated successfully. New parameter of the initial GP:")
+        
+            self.print_model_parameter(gp_modellist.state_dict())
+
+        else:
+            if self.transfer_learning_method == "no_transfer":
+                print("No historic data available. Using default parameters.")
+                self.print_model_parameter(gp_modellist.state_dict())
+                print(50*"-")
+
         self.gp_model = gp_modellist
+
+    def print_model_parameter(self, model_state_dict):
+        num_objectives = self.dataset_manager.output_dim
+        
+        for obj_index in range(num_objectives):
+            print(f"Objective {obj_index + 1}:")
+            print(f"  constant_mean: {model_state_dict[f'models.{obj_index}.mean_module.raw_constant']}")
+            print(f"  raw_lengthscale: {model_state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale']}")
+            print(f"  raw_outputscale: {model_state_dict[f'models.{obj_index}.covar_module.raw_outputscale']}")
+            print(50 * "-")
 
     def setup_multiple_gp_models(self):
         gp_model_list = []
@@ -120,13 +129,12 @@ class MultiSingletaskGPInitializer(BaseModel):
 
             mll = fit_gpytorch_mll(mll=mll)
     
-        elif self.transfer_learning_method == "initial_transfer":
-            print(f"Historic data is available. Mean and CovModule are taken and fixed right now. No maximization of MarginalLogLikelihood.")
-        elif self.transfer_learning_method == "transfer_and_retrain":
-            print(f"Historic data is available. Model was initially primed and now it is partially retrained on new data! afterwards")
+        elif self.transfer_learning_method == "initial_transfer" or self.transfer_learning_method == "transfer_and_retrain":
+            print(f"Historic data is available. Mean and CovModule are taken and fixed right now for initial setup. Will be retrained on new available data. No maximization of MarginalLogLikelihood.")
         
-    def reinitialize_model(self, initial_train_method: str = "no_retrain"):
+    def reinitialize_model(self, current_iteration: int):
         #function to reinitialize the model after new data has been added after each optimization iteration!
+        #order: first setup model with data new added data in dataset, then do training
 
         if self.transfer_learning_method == "no_transfer":
             
@@ -158,12 +166,100 @@ class MultiSingletaskGPInitializer(BaseModel):
 
             print(f"Old parameters loaded. No retraining")
 
-            
-        # TODO: retraining scheduler needs to be implemented here.
+            self.print_model_parameter(self.gp_model.state_dict())
 
         elif self.transfer_learning_method == "transfer_and_retrain":
-            raise NotImplementedError("This method is not yet implemented.")        
+            print(f"Model was initially primed and now it is partially retrained on new data!")
+
+            #setup model with new data and old parameters:
+
+            old_state_dict = self.gp_model.state_dict()
+
+            gp_modellist = self.setup_multiple_gp_models()
+
+            gp_modellist.load_state_dict(old_state_dict)
+
+            self.gp_model = gp_modellist
+
+            # torch optimizer method in botorch is used. Optimizer instance is initialized and handed over. Adam is used.
+            # see line 182 in botorch/optim/core.py: handed over Optimizer is not overwritten
+
+            mll = SumMarginalLogLikelihood(self.gp_model.likelihood, self.gp_model)
+
+            #learning rate and step_limit, which will be increased by schedule
+            #these are set as class variables here
+
+            # Adjust learning rate and step limit based on the current iteration
+            self.lr, self.step_limit = self.adjust_step_and_lr(current_iteration, self.lr, self.step_limit)
+
+            # Extract all parameters that require gradients from the MLL
+            parameters = [p for p in mll.parameters() if p.requires_grad]
+
+            costum_optimizer = Adam(params=parameters, lr=self.lr)
+
+            fit_gpytorch_mll_torch(mll=mll, optimizer=costum_optimizer, step_limit=self.step_limit)
+
+            self.print_model_parameter(self.gp_model.state_dict())
             
+    def adjust_step_and_lr(self, current_iteration: int, lr: float, step_limit: int):
+        if current_iteration > 0 and current_iteration % 10 == 0:
+            new_lr = lr * 2
+            new_step_limit = step_limit * 2
+            print(f"Iteration {current_iteration}: Doubling learning rate to {new_lr} and step limit to {new_step_limit}")
+        else:
+            new_lr = lr
+            new_step_limit = step_limit
+        
+        return new_lr, new_step_limit
+
+    def update_old_statedict(self, old_state_dict: dict):
+
+        # AVERAGED here. Implementation of other methods later
+        
+        # Initialize accumulators for each hyperparameter per objective
+        constant_means = [[] for _ in range(self.dataset_manager.output_dim)]
+        raw_lengthscales = [[] for _ in range(self.dataset_manager.output_dim)]
+        raw_outputscales = [[] for _ in range(self.dataset_manager.output_dim)]
+
+        num_objectives = self.dataset_manager.output_dim
+
+        historic_model_statedict_list = self.dataset_manager.historic_modelinfo_list 
+
+        for state_dict in historic_model_statedict_list:
+            for obj_index in range(num_objectives):
+                # Extract hyperparameters for each objective and store in respective lists
+                constant_means[obj_index].append(state_dict[f'models.{obj_index}.mean_module.raw_constant'])
+                raw_lengthscales[obj_index].append(state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale'])
+                raw_outputscales[obj_index].append(state_dict[f'models.{obj_index}.covar_module.raw_outputscale'])
+                #print(f"Extracted hyperparameters from historic model {obj_index + 1}")
+                #print(f"constant mean: {state_dict[f'models.{obj_index}.mean_module.raw_constant']}")
+                #print(f"raw lengthscale: {state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale']}")
+                #print(f"raw outputscale: {state_dict[f'models.{obj_index}.covar_module.raw_outputscale']}")
+
+
+        # TODO: here weighting etc can be implemented. This also works for averaging: equal weights for all!
+
+        # Compute averages for each objective separately:
+        average_constant_means = [torch.mean(torch.stack(constant_means[obj_index]), dim=0) for obj_index in range(num_objectives)]
+        average_raw_lengthscales = [torch.mean(torch.stack(raw_lengthscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
+        average_raw_outputscales = [torch.mean(torch.stack(raw_outputscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
+
+        # Print the averaged hyperparameters
+        # for obj_index in range(num_objectives):
+        #     print(f"Average constant mean for objective {obj_index + 1}: {average_constant_means[obj_index]}")
+        #     print(f"Average raw lengthscale for objective {obj_index + 1}: {average_raw_lengthscales[obj_index]}")
+        #     print(f"Average raw outputscale for objective {obj_index + 1}: {average_raw_outputscales[obj_index]}")
+
+        # Update the old_state_dict with the averaged values for each objective
+        for obj_index in range(num_objectives):
+            old_state_dict[f'models.{obj_index}.mean_module.raw_constant'].copy_(average_constant_means[obj_index])
+            old_state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale'].copy_(average_raw_lengthscales[obj_index])
+            old_state_dict[f'models.{obj_index}.covar_module.raw_outputscale'].copy_(average_raw_outputscales[obj_index])
+
+        return old_state_dict
+
+
+    #OLD:
                
     #these two functions are only called once in the initial setup, afterwards the state_dict is used to transfer the knowledge!
     def compute_prior_means_covar_list(self) -> tuple[list[Mean], list[Module]]:
@@ -173,7 +269,7 @@ class MultiSingletaskGPInitializer(BaseModel):
         singletaskgp_list_all_tasks = []
 
         #for each historic dataset, train a singletaskgp model per objective of all objectives
-        for historic_dataset in self.dataset_manager.historic_datasets:
+        for historic_dataset in self.dataset_manager.historic_modeldata_list:
             
             singletaskgp_list = []
 

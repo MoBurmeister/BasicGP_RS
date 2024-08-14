@@ -117,10 +117,10 @@ class BayesianOptimizer:
 
         if self.multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0] == 0:
             prune_baseline_check = False
-            print(f"Initial dataset is empty. Prune baseline set to False.")
+            #print(f"Initial dataset is empty. Prune baseline set to False.")
         else:
             prune_baseline_check = True
-            print(f"Initial dataset is not empty. Prune baseline set to True.")
+            #print(f"Initial dataset is not empty. Prune baseline set to True.")
 
         acq_function = qLogNoisyExpectedHypervolumeImprovement(model=self.multiobjective_model.gp_model, 
                                                             ref_point=self.reference_point, 
@@ -160,7 +160,7 @@ class BayesianOptimizer:
 
         #only adjusted next_observation (based on maximization flags) will be added to dataset!        
         self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_observation))
-        self.multiobjective_model.reinitialize_model()
+        self.multiobjective_model.reinitialize_model(current_iteration = iteration_num)
         
 
     def validate_output_constraints(self):
@@ -283,6 +283,7 @@ class BayesianOptimizer:
             #Check to update reference point every 10 iterations. Potentially adjust the number 10. Also just update ref point when it is not handed over
             if iteration % 4 == 0 and not self.reference_point_handed_over:
                 self.update_reference_point()
+                self.optimization_loop_data_dict[iteration+1]["reference_point"] = self.reference_point
 
             if use_stopping_criterion:
                 if self.stopping_criterion(num_iteration = iteration, sc_hypervolume = stopping_criterion_hypervolume) and iteration >= num_min_iterations:
@@ -305,6 +306,8 @@ class BayesianOptimizer:
         # Calculate the total time taken
         total_time = end_time - start_time
         
+        print(50*"#")
+
         # Print the total time taken
         print(f"Total time taken for optimization: {total_time:.2f} seconds. Deviations in the summed iteration times may be possible due to additional calculations outside the iterations (e.g., Hypervolume).")
         
@@ -313,16 +316,17 @@ class BayesianOptimizer:
         self.visualize_pareto_front()
 
         # Get the current date and format it
-        current_date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        current_date_time = datetime.now().strftime("%Y%m%d_%H%M")
 
         # Create a folder name based on the current date and time
-        folder_name = f"{current_date_time}_BOMOGP_TL_Optimization_Results_{self.save_file_name}"
+        folder_name = f"{current_date_time}_BOMOGP_TL_Opt_{self.save_file_name}"
         
         folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export")
 
         # Export everything via function
         export_everything(multiobjective_model=self.multiobjective_model, optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, fig_list=self.export_figures, folder_path=folder_path, folder_name=folder_name, file_format="xlsx")
         print(f"Optimization data exported to folder in path: {folder_path}")
+        print(50*"#")
 
     def calculate_hypervolume(self):
 
