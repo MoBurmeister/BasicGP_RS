@@ -160,7 +160,7 @@ class MultiSingletaskGPInitializer(BaseModel):
 
             gp_modellist = self.setup_multiple_gp_models()
 
-            gp_modellist.load_state_dict(old_state_dict)
+            gp_modellist.load_state_dict(old_state_dict, strict=False)
 
             self.gp_model = gp_modellist
 
@@ -177,7 +177,7 @@ class MultiSingletaskGPInitializer(BaseModel):
 
             gp_modellist = self.setup_multiple_gp_models()
 
-            gp_modellist.load_state_dict(old_state_dict)
+            gp_modellist.load_state_dict(old_state_dict, strict=False)
 
             self.gp_model = gp_modellist
 
