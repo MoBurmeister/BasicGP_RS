@@ -2,3 +2,4 @@
 /__pycache__/
 /smart_doe_bayesian_optimization/data_export/multi_singletaskgp_data_export/
 /smart_doe_bayesian_optimization/data_import/
+/smart_doe_bayesian_optimization/main.py
