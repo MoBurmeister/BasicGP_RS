@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from models.gp_model import BaseModel
 import torch
 import pickle
+from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
+
 
 def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, results_dict: dict, fig_list,  folder_path: str, folder_name: str, file_format: str = "xlsx"):
     # Check for the correct file format
@@ -28,7 +30,7 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
     'Num Data Points': multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0],
     'Variation Factor': multiobjective_model.dataset_manager.variation_factor,
     'Model Info (state dict)': multiobjective_model.gp_model.state_dict,
-    'Model Hyperparameter': multiobjective_model.gp_model.hyperparameters,
+    'Model Hyperparameter': multiobjective_model.gp_model.parameters,
     'Num historic datasets': len(multiobjective_model.dataset_manager.historic_modelinfo_list),
     'maximization_flags': multiobjective_model.dataset_manager.maximization_flags,  
     'bounds': multiobjective_model.dataset_manager.initial_dataset.bounds_list
@@ -45,7 +47,16 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
     input_df = pd.DataFrame(input_data)
     output_df = pd.DataFrame(output_data)
 
-    
+    if isinstance(multiobjective_model, MultiMultitaskInitializer):
+        input_task_data = multiobjective_model.multitaskdatasetmanager.train_X_taskdataset.numpy()
+        output_task_data_lists = multiobjective_model.multitaskdatasetmanager.train_Y_single_taskdatasets
+        concatenated_tensor = torch.cat(output_task_data_lists, dim=1)
+        output_task_data = concatenated_tensor.numpy()
+
+        # Convert the numpy arrays to DataFrames
+        input_task_data_df = pd.DataFrame(input_task_data)
+        output_task_data_df = pd.DataFrame(output_task_data)
+        
     # Save the DataFrames to Excel
     with pd.ExcelWriter(file_path, engine='xlsxwriter') as writer:
         optimization_df.to_excel(writer, sheet_name='Optimization')
@@ -53,6 +64,11 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
         input_df.to_excel(writer, sheet_name='Input Data')
         output_df.to_excel(writer, sheet_name='Output Data')
         setup_information_df.to_excel(writer, sheet_name='Setup Information')
+
+        # If the model is an instance of MultiMultitaskInitializer, save the additional data
+        if isinstance(multiobjective_model, MultiMultitaskInitializer):
+            input_task_data_df.to_excel(writer, sheet_name='Input Task Data')
+            output_task_data_df.to_excel(writer, sheet_name='Output Task Data')
 
     print(f"Data successfully saved to {file_path}")
     

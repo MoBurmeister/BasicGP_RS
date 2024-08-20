@@ -1,4 +1,3 @@
-from botorch.acquisition.acquisition import AcquisitionFunction
 from data.create_dataset import DataManager
 from models.gp_model import BaseModel
 from botorch.models import SingleTaskGP

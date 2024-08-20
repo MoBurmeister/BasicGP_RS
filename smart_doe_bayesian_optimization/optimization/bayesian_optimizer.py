@@ -13,6 +13,7 @@ from data_export.data_export import export_everything
 from datetime import datetime  
 import os
 from optimization.stopping_criterion import Extended_ExpMAStoppingCriterion
+from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
 import numpy as np
 
 class BayesianOptimizer:
@@ -160,6 +161,12 @@ class BayesianOptimizer:
 
         #only adjusted next_observation (based on maximization flags) will be added to dataset!        
         self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_observation))
+
+
+        if isinstance(self.multiobjective_model, MultiMultitaskInitializer):
+            self.multiobjective_model.multitaskdatasetmanager.add_point_to_taskdatasets(new_X = self.next_input_setting, new_Y = self.next_observation)
+
+
         self.multiobjective_model.reinitialize_model(current_iteration = iteration_num)
         
 

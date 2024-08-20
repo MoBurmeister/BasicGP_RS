@@ -76,6 +76,7 @@ class DataManager:
         
 
     def add_point_to_initial_dataset(self, point: Tuple[torch.Tensor, torch.Tensor]):
+        # TODO: dtype float64 is correct?
         #Add a single point to the initial dataset
         #Should only set one point of shape ([1, d])
         if self.initial_dataset is None:
@@ -261,7 +262,7 @@ class InitialDataLoader:
 class HistoricDataLoader:
     
     '''
-    OLD APPROACH (still here for consistency):
+    OLD APPROACH (still here for information):
     Consideration of what needs to be transfered from the historic dataset to the new one:
     - input and output data
     - bounds
