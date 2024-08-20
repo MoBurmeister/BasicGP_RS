@@ -99,7 +99,7 @@ class MultiMultitaskInitializer(BaseModel):
             mll = fit_gpytorch_mll(mll)
 
         for i in range(self.gp_model.num_outputs):
-            print(f"Multitaskmodel initialized with {self.gp_model.models[i].train_inputs.shape} input datapoints and {self.gp_model.models[i].train_targets.shape} output points.")
+            print(f"Multitaskmodel initialized with {self.gp_model.models[i].train_inputs[0].shape} input datapoints and {self.gp_model.models[i].train_targets} output points.")
 
         print(f"MultiMultitaskInitializer model successfully reinitialized and retrained.")
 
