@@ -19,8 +19,6 @@ class MultiMultitaskInitializer(BaseModel):
         self.multitaskdatasetmanager = MultiTaskDatasetManager(self.dataset_manager)
 
     
-    # TODO: Where implementation of transforms? multitask initiation?
-    
     def initially_setup_model(self):
 
         # TODO: implement check that model needs to be initialized WITH historic datasets! (at least one)
@@ -65,7 +63,7 @@ class MultiMultitaskInitializer(BaseModel):
         #the mlls of all single multitask models must be trained individually
 
         for i in range(self.gp_model.num_outputs):
-            mll = ExactMarginalLogLikelihood(self.gp_model.models[0].likelihood, self.gp_model.models[0])
+            mll = ExactMarginalLogLikelihood(self.gp_model.models[i].likelihood, self.gp_model.models[i])
 
             mll = fit_gpytorch_mll(mll)
 
@@ -97,11 +95,13 @@ class MultiMultitaskInitializer(BaseModel):
         self.gp_model = multitask_modellist
 
         for i in range(self.gp_model.num_outputs):
-            mll = ExactMarginalLogLikelihood(self.gp_model.models[0].likelihood, self.gp_model.models[0])
+            mll = ExactMarginalLogLikelihood(self.gp_model.models[i].likelihood, self.gp_model.models[i])
             mll = fit_gpytorch_mll(mll)
-            print(f"Model {i} reinitialized and retrained.")
 
-        print("MultiMultitaskInitializer model successfully reinitialized and retrained.")
+        for i in range(self.gp_model.num_outputs):
+            print(f"Multitaskmodel initialized with {self.gp_model.models[i].train_inputs.shape} input datapoints and {self.gp_model.models[i].train_targets.shape} output points.")
+
+        print(f"MultiMultitaskInitializer model successfully reinitialized and retrained.")
 
 
 

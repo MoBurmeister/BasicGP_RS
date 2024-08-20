@@ -351,6 +351,8 @@ class BayesianOptimizer:
 
         pareto_points = output_data[pareto_boolean_tensor]
 
+        print(f"Calculated: Number of Pareto Points: {pareto_points.shape[0]} out of {output_data.shape[0]} total points.")
+
         self.results_dict["pareto_points"] = pareto_points
 
     def visualize_pareto_front(self):
