@@ -6,6 +6,7 @@ from models.gp_model import BaseModel
 import torch
 import pickle
 from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
+from models.model_initializer.multi_singletaskgp_initializer import MultiSingletaskGPInitializer
 
 
 def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, results_dict: dict, fig_list,  folder_path: str, folder_name: str, file_format: str = "xlsx"):
@@ -35,6 +36,11 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
     'maximization_flags': multiobjective_model.dataset_manager.maximization_flags,  
     'bounds': multiobjective_model.dataset_manager.initial_dataset.bounds_list
     }   
+
+    if isinstance(multiobjective_model, MultiSingletaskGPInitializer):
+        setup_information['Transfer Learning Method'] = multiobjective_model.transfer_learning_method
+        setup_information['Learning_rate'] = multiobjective_model.lr
+        setup_information['step_limit'] = multiobjective_model.step_limit
     
     # Convert dictionaries to DataFrames
     optimization_df = pd.DataFrame.from_dict(optimization_dict, orient='index')
@@ -92,7 +98,8 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
         'num_datapoints': multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0],
         'maximization_flags': multiobjective_model.dataset_manager.maximization_flags,
         'bounds': multiobjective_model.dataset_manager.initial_dataset.bounds_list,
-        'variation_factor': multiobjective_model.dataset_manager.variation_factor
+        'variation_factor': multiobjective_model.dataset_manager.variation_factor, 
+        'metafeatures': multiobjective_model.dataset_manager.initial_dataset.meta_data_dict
         #here potential additional information can be added
     }
 

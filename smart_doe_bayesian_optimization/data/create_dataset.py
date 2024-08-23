@@ -40,7 +40,7 @@ class DataManager:
         self.dtype = dtype
         self.maximization_flags = []
     
-    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], sampling_method: str = "grid", noise_level: float = 0.0, identifier:int=None):
+    def load_initial_dataset(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], meta_data_dict: dict, sampling_method: str = "grid", noise_level: float = 0.0, identifier:int=None):
         '''
         If a flag is False, it indicates the corresponding output dimension should be minimized!
         '''
@@ -48,9 +48,9 @@ class DataManager:
         self.output_parameter_name = output_parameter_name
 
         if self.external_input:
-            initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, identifier=identifier)
+            initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, meta_data_dict, identifier=identifier)
         else:
-            initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, sampling_method, noise_level, identifier)
+            initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, meta_data_dict, sampling_method, noise_level, identifier)
         check_type(initial_dataset, Dataset)
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
@@ -76,7 +76,6 @@ class DataManager:
         
 
     def add_point_to_initial_dataset(self, point: Tuple[torch.Tensor, torch.Tensor]):
-        # TODO: dtype float64 is correct?
         #Add a single point to the initial dataset
         #Should only set one point of shape ([1, d])
         if self.initial_dataset is None:
@@ -86,6 +85,7 @@ class DataManager:
         check_dataset_shape(point[1])
         self.initial_dataset.input_data = torch.cat([self.initial_dataset.input_data, point[0]], dim=0)
         self.initial_dataset.output_data = torch.cat([self.initial_dataset.output_data, point[1]], dim=0)
+        self.initial_dataset.num_datapoints += 1    
         check_dataset_same_size(self.initial_dataset.input_data, self.initial_dataset.output_data)
 
 
@@ -119,7 +119,7 @@ class InitialDataLoader:
     def __init__(self, dtype: torch.dtype = torch.float64):
         self.dtype = dtype
 
-    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], sampling_method: str = "grid", noise_level: float = 0.0, identifier: int =None) -> Dataset:
+    def load_dataset(self, dataset_func: Callable[..., torch.Tensor], num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], meta_data_dict: dict, sampling_method: str = "grid", noise_level: float = 0.0, identifier: int =None) -> Dataset:
         """
         Load a dataset using the specified dataset function and parameters.
         Important: bounds are provided as a touple here, need to be converted into correct ([2, d]) shape via the convert_bounds_to_tensor function.
@@ -174,12 +174,12 @@ class InitialDataLoader:
 
         bounds_tensor = self.convert_bounds_to_tensor(bounds)        
 
-        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
+        initial_datset = Dataset(input_data=inputs, output_data=output, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, meta_data_dict=meta_data_dict, identifier=identifier)
 
         return initial_datset
     
 
-    def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], identifier: int=None):
+    def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], meta_data_dict: dict, identifier: int=None):
 
         #just LHS supported due to scientific literature
 
@@ -215,7 +215,7 @@ class InitialDataLoader:
         # Convert the collected outputs into a tensor
         outputs = torch.tensor(outputs_list).reshape(num_datapoints, num_outputs)
 
-        initial_dataset = Dataset(input_data=inputs, output_data=outputs, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, identifier=identifier)
+        initial_dataset = Dataset(input_data=inputs, output_data=outputs, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, meta_data_dict=meta_data_dict, identifier=identifier)
 
         return initial_dataset
 

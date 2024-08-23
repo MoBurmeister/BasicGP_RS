@@ -13,14 +13,16 @@ from gpytorch.kernels import MaternKernel
 from typing import Literal
 import torch
 from torch.optim import Adam
+import numpy as np
 
 class MultiSingletaskGPInitializer(BaseModel):
-    def __init__(self, dataset: DataManager, transfer_learning_method: Literal["no_transfer", "initial_transfer", "transfer_and_retrain"]):
+    def __init__(self, dataset: DataManager, transfer_learning_method: Literal["no_transfer", "initial_transfer", "transfer_and_retrain"], bool_transfer_averaging: bool = True):
         super().__init__(dataset)
         self.gp_model = None
         self.transfer_parameter = None
         #string to clarify transfer learning method
         self.transfer_learning_method = transfer_learning_method
+        self.bool_transfer_averaging = bool_transfer_averaging  #if true, the hyperparameters are averaged over all historic datasets
         self.lr = 0.0001
         self.step_limit = 10
     
@@ -213,7 +215,11 @@ class MultiSingletaskGPInitializer(BaseModel):
 
     def update_old_statedict(self, old_state_dict: dict):
 
-        # AVERAGED here. Implementation of other methods later
+        # Get the normalized weights
+        weights = self.get_weights_for_transfer()
+
+        if len(weights) != len(self.dataset_manager.historic_dataset_list):
+            raise ValueError("Number of weights must match the number of objectives.")
         
         # Initialize accumulators for each hyperparameter per objective
         constant_means = [[] for _ in range(self.dataset_manager.output_dim)]
@@ -224,30 +230,27 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         historic_model_statedict_list = self.dataset_manager.historic_modelinfo_list 
 
-        for state_dict in historic_model_statedict_list:
+        for state_idx, state_dict in enumerate(historic_model_statedict_list):
             for obj_index in range(num_objectives):
-                # Extract hyperparameters for each objective and store in respective lists
-                constant_means[obj_index].append(state_dict[f'models.{obj_index}.mean_module.raw_constant'])
-                raw_lengthscales[obj_index].append(state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale'])
-                raw_outputscales[obj_index].append(state_dict[f'models.{obj_index}.covar_module.raw_outputscale'])
-                #print(f"Extracted hyperparameters from historic model {obj_index + 1}")
-                #print(f"constant mean: {state_dict[f'models.{obj_index}.mean_module.raw_constant']}")
-                #print(f"raw lengthscale: {state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale']}")
-                #print(f"raw outputscale: {state_dict[f'models.{obj_index}.covar_module.raw_outputscale']}")
+                # Extract hyperparameters for each objective and apply weighting
+                weighted_constant_mean = weights[state_idx] * state_dict[f'models.{obj_index}.mean_module.raw_constant']
+                weighted_lengthscale = weights[state_idx] * state_dict[f'models.{obj_index}.covar_module.base_kernel.raw_lengthscale']
+                weighted_outputscale = weights[state_idx] * state_dict[f'models.{obj_index}.covar_module.raw_outputscale']
 
+                constant_means[obj_index].append(weighted_constant_mean)
+                raw_lengthscales[obj_index].append(weighted_lengthscale)
+                raw_outputscales[obj_index].append(weighted_outputscale)
 
-        # TODO: here weighting etc can be implemented. This also works for averaging: equal weights for all!
-
-        # Compute averages for each objective separately:
-        average_constant_means = [torch.mean(torch.stack(constant_means[obj_index]), dim=0) for obj_index in range(num_objectives)]
-        average_raw_lengthscales = [torch.mean(torch.stack(raw_lengthscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
-        average_raw_outputscales = [torch.mean(torch.stack(raw_outputscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
+        # Compute weighted averages for each objective separately
+        average_constant_means = [torch.sum(torch.stack(constant_means[obj_index]), dim=0) for obj_index in range(num_objectives)]
+        average_raw_lengthscales = [torch.sum(torch.stack(raw_lengthscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
+        average_raw_outputscales = [torch.sum(torch.stack(raw_outputscales[obj_index]), dim=0) for obj_index in range(num_objectives)]
 
         # Print the averaged hyperparameters
-        # for obj_index in range(num_objectives):
-        #     print(f"Average constant mean for objective {obj_index + 1}: {average_constant_means[obj_index]}")
-        #     print(f"Average raw lengthscale for objective {obj_index + 1}: {average_raw_lengthscales[obj_index]}")
-        #     print(f"Average raw outputscale for objective {obj_index + 1}: {average_raw_outputscales[obj_index]}")
+        for obj_index in range(num_objectives):
+            print(f"Average constant mean for objective {obj_index + 1}: {average_constant_means[obj_index]}")
+            print(f"Average raw lengthscale for objective {obj_index + 1}: {average_raw_lengthscales[obj_index]}")
+            print(f"Average raw outputscale for objective {obj_index + 1}: {average_raw_outputscales[obj_index]}")
 
         # Update the old_state_dict with the averaged values for each objective
         for obj_index in range(num_objectives):
@@ -256,6 +259,67 @@ class MultiSingletaskGPInitializer(BaseModel):
             old_state_dict[f'models.{obj_index}.covar_module.raw_outputscale'].copy_(average_raw_outputscales[obj_index])
 
         return old_state_dict
+    
+    def get_weights_for_transfer(self):
+
+        #this should return a number of weights, according to which the hyperparameters are weighted for the transfer learning
+        # Number of datasets (or historic models)
+        num_datasets = len(self.dataset_manager.historic_dataset_list)
+
+        if self.bool_transfer_averaging:
+       
+            weights = [1.0 / num_datasets] * num_datasets
+
+        else:
+            # weighted average for weights according to dataset meta features
+            historic_datasetinfo_list = self.dataset_manager.historic_datasetinfo_list
+            initial_dataset_metafeatures = self.dataset_manager.initial_dataset.meta_data_dict
+
+            # Extract the meta-features from each dataset and the current task
+            historic_metafeatures = []
+            for dataset_info in historic_datasetinfo_list:
+                if 'metafeatures' not in dataset_info:
+                    raise ValueError(f"Metafeatures missing in dataset: {dataset_info}")
+                historic_metafeatures.append(dataset_info['metafeatures'])
+
+            # Normalize meta-features for each dataset
+            all_metafeatures = historic_metafeatures + [initial_dataset_metafeatures]
+            metafeature_keys = list(initial_dataset_metafeatures.keys())
+            
+            # Check if metafeature keys are present in historic datasets
+            for dataset_info in historic_datasetinfo_list:
+                if 'metafeatures' not in dataset_info:
+                    raise ValueError(f"Metafeatures missing in dataset: {dataset_info}")
+                dataset_metafeatures = dataset_info['metafeatures']
+                missing_keys = [key for key in metafeature_keys if key not in dataset_metafeatures]
+                if missing_keys:
+                    raise ValueError(f"Metafeature keys {missing_keys} missing in historic dataset: {dataset_info}")
+            
+            # Initialize normalization parameters
+            metafeature_matrix = np.array([[mf[key] for key in metafeature_keys] for mf in all_metafeatures])
+            means = np.mean(metafeature_matrix, axis=0)
+            stds = np.std(metafeature_matrix, axis=0)
+
+            # Normalize all meta-features
+            normalized_metafeatures = (metafeature_matrix - means) / stds
+
+            # Separate normalized meta-features back
+            normalized_historic = normalized_metafeatures[:-1]
+            normalized_current = normalized_metafeatures[-1]
+
+            # Calculate Euclidean distances between the current task and each historic dataset
+            distances = np.linalg.norm(normalized_historic - normalized_current, axis=1)
+
+            # Convert distances to weights (inverse of distance)
+            inverse_distances = 1 / (distances + 1e-8)  # Add a small value to avoid division by zero
+
+            # Normalize weights so they sum to 1
+            weights = inverse_distances / np.sum(inverse_distances)
+
+            print(f"Calculated weights for transfer learning: {weights}")
+
+            
+        return weights.tolist()
 
 
     #OLD:

@@ -257,7 +257,12 @@ class BayesianOptimizer:
         #calculate and add initial hypervolume:
         initial_hypervolume = self.calculate_hypervolume()
         self.optimization_loop_data_dict[0] = {"hypervolume": initial_hypervolume}
-        print(f"Inital Hypervolume: {initial_hypervolume}")
+        print(f"Initial Hypervolume: {initial_hypervolume}")
+
+        #calculate and add initial diversity metric:
+        initial_diversity_metric = self.calculate_diversity_metric()
+        self.optimization_loop_data_dict[0]["diversity_metric"] = initial_diversity_metric.item()
+        print(f"Initial Diversity Metric: {initial_diversity_metric}")
 
         #initiating stopping criterion classes
         #Note: set minimize to false, when considered measurement is maximized (e.g. hypervolume)
@@ -282,10 +287,28 @@ class BayesianOptimizer:
             print(f"Iteration {iteration + 1} of max. {num_max_iterations} iterations completed. It took {iteration_duration:.2f} seconds.")
 
             #Modulo to potentially adjust computationally expensive calculation of the hypervolume
+            #Also integration of diversity metric calculation
+            #CHANGING THIS HAS EFFECTS ON THE num_pareto_points as well
             if iteration % 1 == 0:
                 hypervolume = self.calculate_hypervolume()
                 self.optimization_loop_data_dict[iteration+1]["hypervolume"] = hypervolume
                 print(f"Final Hypervolume: {hypervolume}")
+
+                previous_hypervolume = self.optimization_loop_data_dict[iteration]["hypervolume"]
+                rate_of_change = (hypervolume - previous_hypervolume) / previous_hypervolume
+                self.optimization_loop_data_dict[iteration + 1]["hypervolume_rate_of_change"] = rate_of_change
+
+                #diversity metric calculation
+                diversity_metric = self.calculate_diversity_metric()
+                self.optimization_loop_data_dict[iteration+1]["diversity_metric"] = diversity_metric.item()
+                print(f"Final Diversity Metric: {diversity_metric}")
+
+                previous_diversity_metric = self.optimization_loop_data_dict[iteration]["diversity_metric"]
+                rate_of_change_diversity = (diversity_metric - previous_diversity_metric) / previous_diversity_metric
+                self.optimization_loop_data_dict[iteration + 1]["diversity_metric_rate_of_change"] = rate_of_change_diversity.item()
+
+            #save number of pareto points
+            self.optimization_loop_data_dict[iteration+1]["num_pareto_points"] = self.results_dict["pareto_points"].shape[0]
 
             #Check to update reference point every 10 iterations. Potentially adjust the number 10. Also just update ref point when it is not handed over
             if iteration % 4 == 0 and not self.reference_point_handed_over:
@@ -343,6 +366,40 @@ class BayesianOptimizer:
 
         return hypervolume
     
+    def calculate_diversity_metric(self):
+        # Extract Pareto points, shape is ([n, d]), where n is the number of points and d is the number of objectives 
+        pareto_points = self.results_dict["pareto_points"]  # Assuming pareto_points is a tensor of shape (n, d)
+        
+        # Sort the pareto points based on each objective
+        sorted_points = torch.sort(pareto_points, dim=0).values
+        
+        # Calculate the differences between consecutive points
+        delta_ij = sorted_points[1:] - sorted_points[:-1]  # Shape will be (n-1, d)
+        
+        # Calculate the average distance for each objective
+        delta_bar_j = torch.mean(delta_ij, dim=0)  # Shape will be (d,)
+        
+        # Compute the numerator for the Δ metric
+        # This includes the first and last distance for each objective, and the absolute differences from the average
+        delta_0j = sorted_points[0] - sorted_points[1]
+        delta_Nj = sorted_points[-1] - sorted_points[-2]
+        
+        # |delta_ij - delta_bar_j|
+        abs_diff = torch.abs(delta_ij - delta_bar_j.unsqueeze(0))  # Unsqueeze to align dimensions
+        
+        numerator = delta_0j + delta_Nj + torch.sum(abs_diff, dim=0)  # Sum along the n-1 axis
+        
+        # Compute the denominator for the Δ metric
+        denominator = delta_0j + delta_Nj + (sorted_points.size(0) - 1) * delta_bar_j
+        
+        # Compute the Δ metric for each objective and take the max value
+        delta_metric = numerator / denominator
+        
+        # The final Δ value is the maximum across all objectives
+        delta_value = torch.max(delta_metric)
+        
+        return delta_value
+
     def calculate_pareto_points(self):
 
         output_data = self.multiobjective_model.dataset_manager.initial_dataset.output_data

@@ -5,7 +5,7 @@ from typing import List
 
 class Dataset:
     """
-    A class representing a dataset. This is used in the inital dataset manager and in the historic dataset manager.
+    A class representing a dataset. This is used in the initial dataset manager and in the historic dataset manager.
 
     Data (input and output) must be of shape ([n, d]) where n is the number of datapoints and d is the number of dimensions.
     n of the input data must match n of the output data.
@@ -21,7 +21,7 @@ class Dataset:
         output_dim (int): The number of dimensions in the output data.
     """
 
-    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_type: str, maximization_flags: List[bool], dtype: torch.dtype = torch.float64, identifier: int = None):
+    def __init__(self, input_data: torch.Tensor, output_data: torch.Tensor, bounds: torch.Tensor, datamanager_type: str, maximization_flags: List[bool], meta_data_dict: dict, dtype: torch.dtype = torch.float64, identifier: int = None):
         """
         Initializes a Dataset object.
 
@@ -40,6 +40,8 @@ class Dataset:
         self.datamanager_type = datamanager_type
 
         self.identifier = identifier
+
+        self.meta_data_dict = meta_data_dict
 
         self.dtype = dtype
 

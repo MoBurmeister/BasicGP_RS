@@ -24,7 +24,7 @@ T_start = 298 # Raumtemperatur in K
 T_Haerten = 1010+273+20 # Zieltemperatur für Härten in K + ca. 20-40K Obergrenze
 # also: 1303 max
 
-# T_Lösungsglühen = 800+273 für AlSi10Mg
+# T_Lösungsglühen = 800+273+20 für AlSi10Mg
 
 # Parameter für Simulation (Schritte + Geometrie) --> hiermit spielen für höhere Auflösung der Simulation
 
