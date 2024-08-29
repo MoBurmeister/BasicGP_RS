@@ -21,9 +21,13 @@ class MultiMultitaskInitializer(BaseModel):
     
     def initially_setup_model(self):
 
-        # TODO: implement check that model needs to be initialized WITH historic datasets! (at least one)
+        if not self.dataset_manager.historic_dataset_list:
+            raise ValueError("No historic datasets found. Please provide at least one historic dataset for the MultiMultitaskInitializer!")
 
-        # TODO: there also needs to be at least one point sampled for the new task!
+        print(f"Number of historic datasets: {len(self.dataset_manager.historic_dataset_list)}. Can instantiate MultiMultitaskInitializer")
+
+        if self.dataset_manager.initial_dataset.output_dim == 0:
+            raise ValueError("No output dimension found. Please provide at least one output dimension for the MultiMultitaskInitializer!")
 
         multitaskmodel_list = []
 

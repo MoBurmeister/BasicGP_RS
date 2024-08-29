@@ -129,7 +129,6 @@ class BayesianOptimizer:
                                                             constraints=self.output_constraints, 
                                                             prune_baseline=prune_baseline_check)
         
-        # TODO: what about num_restarts and raw_samples?
         # here implementation of input constraints but not supported yet!
         candidate, acq_value = optimize_acqf(
             acq_function=acq_function,
@@ -268,7 +267,7 @@ class BayesianOptimizer:
         #initiating stopping criterion classes
         #Note: set minimize to false, when considered measurement is maximized (e.g. hypervolume)
         if use_stopping_criterion:
-            stopping_criterion_hypervolume = Extended_ExpMAStoppingCriterion(minimize=False, n_window=35, eta=1.0, rel_tol=0.001)
+            stopping_criterion_hypervolume = Extended_ExpMAStoppingCriterion(minimize=False, n_window=15, eta=1.0, rel_tol=0.001)
 
         start_time = time.time()
 
@@ -315,7 +314,7 @@ class BayesianOptimizer:
                     rate_of_change_diversity = 0
                 else:
                     rate_of_change_diversity = (diversity_metric - previous_diversity_metric) / previous_diversity_metric
-                self.optimization_loop_data_dict[iteration + 1]["diversity_metric_rate_of_change"] = rate_of_change_diversity.item()
+                self.optimization_loop_data_dict[iteration + 1]["diversity_metric_rate_of_change"] = rate_of_change_diversity
 
             #save number of pareto points
             self.optimization_loop_data_dict[iteration+1]["num_pareto_points"] = self.results_dict["pareto_points"].shape[0]

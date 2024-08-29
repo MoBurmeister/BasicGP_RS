@@ -56,8 +56,6 @@ class MultiTaskDatasetManager:
 
         return train_X_dataset
     
-    # TODO: FIXME: does this work with minimization flags???
-    
     def initiate_train_Y_single_taskdatasets(self):
         # Retrieve datasets (historic and initial)
         historic_datasets = self.dataset_manager.historic_dataset_list

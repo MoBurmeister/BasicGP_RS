@@ -98,8 +98,6 @@ class Extended_ExpMAStoppingCriterion(StoppingCriterion):
                 evaluated element-wise and True is returned if the stopping criterion is
                 true for all elements.
 
-        TODO: add support for utilizing gradient information
-
         Returns:
             Stopping indicator (if True, stop the optimziation).
         """
@@ -122,14 +120,12 @@ class Extended_ExpMAStoppingCriterion(StoppingCriterion):
         if self._prev_fvals.ndim > 1:
             weights = weights.unsqueeze(-1)
 
-        # TODO: Update the exp moving average efficiently
         prev_ma = (self._prev_fvals[:-1] * weights).sum(dim=0)
         ma = (self._prev_fvals[1:] * weights).sum(dim=0)
 
         # Save the current moving average value
         self.ma_values.append(ma.item() if ma.numel() == 1 else ma.tolist())
 
-        # TODO: Handle approx. zero losses (normalize by min/max loss range)
         rel_delta = (prev_ma - ma) / prev_ma.abs()
 
         # Save the current relative decrease value

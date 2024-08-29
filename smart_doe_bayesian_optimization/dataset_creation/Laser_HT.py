@@ -28,7 +28,7 @@ T_Haerten = 1010+273+20 # Zieltemperatur für Härten in K + ca. 20-40K Obergren
 
 # Parameter für Simulation (Schritte + Geometrie) --> hiermit spielen für höhere Auflösung der Simulation
 
-# TODO: Resolution can be adjusted here:
+# Resolution can be adjusted here:
 resolution = 10000
 x_start, x_end, dx = -0.02, 0.01, 0.001
 y_start, y_end, dy = -0.005, 0.005, 0.001

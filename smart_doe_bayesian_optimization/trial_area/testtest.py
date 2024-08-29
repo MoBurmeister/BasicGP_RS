@@ -39,7 +39,7 @@ from botorch.test_functions.multi_objective import VehicleSafety
 
 bounds = torch.tensor([[1.0, 1.0, 1.0, 1.0, 1.0], [3.0, 3.0, 3.0, 3.0, 3.0]])
 
-train_X = torch.rand(3, 5, dtype=torch.float64) * (bounds[1] - bounds[0]) + bounds[0]
+train_X = torch.rand(4, 5, dtype=torch.float64) * (bounds[1] - bounds[0]) + bounds[0]
 function = VehicleSafety()
 
 
@@ -98,13 +98,17 @@ class RGPE(GP, GPyTorchModel):
             mean_x = posterior.mean
             covar_x = posterior.mvn.lazy_covariance_matrix
 
-            print(f"covar_x {i} dense: {covar_x.to_dense()}\n")
+            #print(f"covar_x {i} dense: {covar_x.to_dense()}\n")
+            
+            #unstandardizing
+            mean_x = mean_x.squeeze(-1) * model.outcome_transform.stdvs + model.outcome_transform.means
+            covar_x = covar_x
             
             # Compute weighted mean and covariance
             weighted_means.append(self.weights[i] * mean_x)
             weighted_covariances.append(self.weights[i]**2 * covar_x)
 
-            print(f"Weighted Covariance {i} (Dense): \n{weighted_covariances[i].to_dense()}\n")
+            #print(f"Weighted Covariance {i} (Dense): \n{weighted_covariances[i].to_dense()}\n")
 
         #Sum the weighted means and covariances
         mean_x = sum(weighted_means)
@@ -115,7 +119,7 @@ class RGPE(GP, GPyTorchModel):
 
         summed_covariance = BlockDiagLinearOperator(sum(base_covariances))
 
-        print(f"Summed Covariance (Dense): \n{summed_covariance.to_dense()}\n")
+        #print(f"Summed Covariance (Dense): \n{summed_covariance.to_dense()}\n")
 
 
         #Return MultivariateNormal with weighted mean and covariance
@@ -144,15 +148,15 @@ acq_function = qLogNoisyExpectedHypervolumeImprovement(model=rgpe,
                                                             prune_baseline=False)
         
 
-# candidate, acq_value = optimize_acqf(
-# acq_function=acq_function,
-# bounds=bounds,
-# q=1,
-# num_restarts=40,
-# raw_samples=512
-#         )
+candidate, acq_value = optimize_acqf(
+acq_function=acq_function,
+bounds=bounds,
+q=1,
+num_restarts=40,
+raw_samples=512
+        )
 
-# print(candidate, acq_value)
+print(candidate, acq_value)
 
 # def objective_functions(tensor):
 #     x1, x2, x3, x4 = tensor[0]
@@ -219,7 +223,6 @@ acq_function = qLogNoisyExpectedHypervolumeImprovement(model=rgpe,
 
 # acq_function = qLogNoisyExpectedHypervolumeImprovement(model=model, X_baseline=train_X, ref_point=torch.tensor([0.0, 0.0], dtype=torch.float64))
 
-#         # TODO: what about num_restarts and raw_samples?
 #         # here implementation of input constraints but not supported yet!
 #         # 
 

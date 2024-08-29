@@ -1,5 +1,8 @@
 import models
 import torch
+import numpy as np
+import random
+import botorch
 from gpytorch.priors import NormalPrior
 from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
@@ -23,10 +26,18 @@ from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolu
 '''
 Important bevore running an optimization:
 - Check maximization flags
+- Check if reference points is needed?
 - Check the reference point (negate all values for minimization)
 - Resulting Hypervolume is dependent on the outcome ranges! can be very different in size
 
 '''
+
+#setting seeds:
+seed = 42
+torch.manual_seed(seed=seed)
+np.random.seed(seed)
+random.seed(seed)
+botorch.utils.sampling.manual_seed(seed=seed)
 
 print(50*"-")
 
@@ -45,6 +56,18 @@ main_dataset.load_initial_dataset(num_datapoints=7, bounds=[(1.0, 3.0)] * 5, max
 
 main_dataset.load_historic_data()
 
+multi_multitask = MultiMultitaskInitializer(dataset_manager=main_dataset)
+
+multi_multitask.initially_setup_model()
+
+multi_multitask.train_initially_gp_model()
+
+bayesian_optimizer = BayesianOptimizer(multiobjective_model=multi_multitask, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_0")
+
+bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
+
+
+
 # multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer", bool_transfer_averaging=False)
 
 # multisingletaskgp.initially_setup_model()    
@@ -57,15 +80,15 @@ main_dataset.load_historic_data()
 
 # bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
 
-multi_rgpe = MultiRGPEInitializer(dataset=main_dataset)
+# multi_rgpe = MultiRGPEInitializer(dataset=main_dataset)
 
-multi_rgpe.setup_model(n_mc_samples=1)
+# multi_rgpe.setup_model(n_mc_samples=1)
 
-multi_rgpe.train_initially_gp_model()
+# multi_rgpe.train_initially_gp_model()
 
-bayesian_optimizer = BayesianOptimizer(multiobjective_model=multi_rgpe, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_-0_05")
+# bayesian_optimizer = BayesianOptimizer(multiobjective_model=multi_rgpe, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_-0_05")
 
-bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
+# bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
 
 # variation_factor = 0.5
 
@@ -138,40 +161,6 @@ bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1
 
 # bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp)
 
-# bayesian_optimizer.optimization_loop(num_max_iterations=1)
-
-# def constraint_func(outputs: torch.Tensor) -> torch.Tensor:
-#     # Extract the second dimension of the outputs
-#     second_dimension = outputs[..., 1]
-    
-#     # Compute the constraint values (negative if feasible)
-#     constraint_values = second_dimension - 2000.0
-
-#     #print(f"Constraint values: {constraint_values}")
-    
-#     return constraint_values
 
 
-#bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, output_constraints=[constraint_func])
-#No constraints:
-# bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp)
 
-# bayesian_optimizer.optimization_loop(num_iterations=100)
-
-# bayesian_optimizer.visualize_pareto_front()
-
-# bayesian_optimizer.visualize_expected_hypervolume_development()
-
-# sin_x = FunctionFactory
-
-# # TODO this needs to be adjusted here: 
-
-# main_dataset = DataManager(sin_x.multi_inputs)
-
-# main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(0, 6), (0, 2), (0, 3), (0, 2), (2, 3)], maximization_flags=[False, True, True], sampling_method="grid", noise_level=0)
-
-# main_dataset.load_historic_dataset('smart_doe_bayesian_optimization\dataset_creation\pickle_files\datasets.pkl')
-
-# multisingletaskgp = MultiSingletaskGPInitializer(main_dataset)
-
-# multisingletaskgp.initialize_model()

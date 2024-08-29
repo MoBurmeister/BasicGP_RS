@@ -43,7 +43,7 @@ class MultiSingletaskGPInitializer(BaseModel):
         
     
     def setup_model(self):
-        # TODO: Implement retraining function for initialization
+
         gp_model_list = []
 
         #this setups the gp list in a basic fashion
@@ -57,7 +57,6 @@ class MultiSingletaskGPInitializer(BaseModel):
             #m=1 here, since one GP is initialized per objective!
             output_transform=Standardize(m=1)
 
-        # TODO: additional Parameter setup needed here?
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
                                      train_Y=self.dataset_manager.initial_dataset.output_data[:, objective].unsqueeze(1),

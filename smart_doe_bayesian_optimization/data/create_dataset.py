@@ -47,6 +47,17 @@ class DataManager:
         self.input_parameter_name = input_parameter_name
         self.output_parameter_name = output_parameter_name
 
+        #check meta_data_dict
+
+        # Check if meta_data_dict is a non-empty dictionary
+        if not isinstance(meta_data_dict, dict) or len(meta_data_dict) == 0:
+            raise ValueError("meta_data_dict must be a non-empty dictionary.")
+        
+        # Validate that all values in meta_data_dict are either float or int
+        for key, value in meta_data_dict.items():
+            if not isinstance(value, (float, int)):
+                raise ValueError(f"The value for '{key}' in meta_data_dict must be an int or float, but got {type(value).__name__}.")
+
         if self.external_input:
             initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, meta_data_dict, identifier=identifier)
         else:

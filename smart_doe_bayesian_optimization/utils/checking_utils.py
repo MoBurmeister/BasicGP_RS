@@ -1,9 +1,5 @@
 import torch
 
-# TODO: implement functions here to check dimensions
-# TODO: implement functions here to check similar size 
-# TODO: implement function to check further similar similarity
-
 
 def check_dataset_shape(dataset: torch.Tensor) -> None:
     """
