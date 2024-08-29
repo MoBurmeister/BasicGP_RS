@@ -137,6 +137,9 @@ class MultiSingletaskGPInitializer(BaseModel):
         #function to reinitialize the model after new data has been added after each optimization iteration!
         #order: first setup model with data new added data in dataset, then do training
 
+        if len(self.dataset_manager.historic_dataset_list) == 0 and self.transfer_learning_method != "no_transfer":
+            raise ValueError("No historic data available. Please set transfer_learning_method to 'no_transfer'.")
+
         if self.transfer_learning_method == "no_transfer":
             
             print(f"No historic data available. Model will be refined on the current newly added data!")

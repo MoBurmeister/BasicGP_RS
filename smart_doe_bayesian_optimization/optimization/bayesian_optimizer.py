@@ -260,8 +260,9 @@ class BayesianOptimizer:
         print(f"Initial Hypervolume: {initial_hypervolume}")
 
         #calculate and add initial diversity metric:
-        initial_diversity_metric = self.calculate_diversity_metric()
+        initial_diversity_metric, initial_diversity_metric_list = self.calculate_diversity_metric()
         self.optimization_loop_data_dict[0]["diversity_metric"] = initial_diversity_metric.item()
+        self.optimization_loop_data_dict[0]["diversity_metric_list"] = initial_diversity_metric_list
         print(f"Initial Diversity Metric: {initial_diversity_metric}")
 
         #initiating stopping criterion classes
@@ -295,20 +296,34 @@ class BayesianOptimizer:
                 print(f"Final Hypervolume: {hypervolume}")
 
                 previous_hypervolume = self.optimization_loop_data_dict[iteration]["hypervolume"]
-                rate_of_change = (hypervolume - previous_hypervolume) / previous_hypervolume
+
+                if previous_hypervolume is None or previous_hypervolume == 0:
+                    rate_of_change = 0  # or some other appropriate value or handling
+                else:
+                    rate_of_change = (hypervolume - previous_hypervolume) / previous_hypervolume
                 self.optimization_loop_data_dict[iteration + 1]["hypervolume_rate_of_change"] = rate_of_change
 
                 #diversity metric calculation
-                diversity_metric = self.calculate_diversity_metric()
+                diversity_metric , diversity_metric_list = self.calculate_diversity_metric()
                 self.optimization_loop_data_dict[iteration+1]["diversity_metric"] = diversity_metric.item()
+                self.optimization_loop_data_dict[iteration+1]["diversity_metric_list"] = diversity_metric_list
                 print(f"Final Diversity Metric: {diversity_metric}")
 
                 previous_diversity_metric = self.optimization_loop_data_dict[iteration]["diversity_metric"]
-                rate_of_change_diversity = (diversity_metric - previous_diversity_metric) / previous_diversity_metric
+
+                if previous_diversity_metric is None or previous_diversity_metric == 0:
+                    rate_of_change_diversity = 0
+                else:
+                    rate_of_change_diversity = (diversity_metric - previous_diversity_metric) / previous_diversity_metric
                 self.optimization_loop_data_dict[iteration + 1]["diversity_metric_rate_of_change"] = rate_of_change_diversity.item()
 
             #save number of pareto points
             self.optimization_loop_data_dict[iteration+1]["num_pareto_points"] = self.results_dict["pareto_points"].shape[0]
+
+            if iteration > 0:
+                previous_num_pareto_points = self.optimization_loop_data_dict[iteration]["num_pareto_points"]
+                rate_of_change_pareto_points = (self.results_dict["pareto_points"].shape[0] - previous_num_pareto_points) / previous_num_pareto_points
+                self.optimization_loop_data_dict[iteration + 1]["num_pareto_points_rate_of_change"] = rate_of_change_pareto_points
 
             #Check to update reference point every 10 iterations. Potentially adjust the number 10. Also just update ref point when it is not handed over
             if iteration % 4 == 0 and not self.reference_point_handed_over:
@@ -369,6 +384,13 @@ class BayesianOptimizer:
     def calculate_diversity_metric(self):
         # Extract Pareto points, shape is ([n, d]), where n is the number of points and d is the number of objectives 
         pareto_points = self.results_dict["pareto_points"]  # Assuming pareto_points is a tensor of shape (n, d)
+
+        if pareto_points.size(0) < 2:
+            # If there are fewer than 2 Pareto points, diversity metric cannot be calculated
+            print("Not enough Pareto points to calculate diversity metric. At least 2 points are required.")
+            delta_value = torch.tensor(0.0)  # Set delta_value to 0 or an appropriate value
+            delta_metric = torch.zeros(pareto_points.size(1))  # Return a zero tensor of shape (d,)
+            return delta_value, delta_metric
         
         # Sort the pareto points based on each objective
         sorted_points = torch.sort(pareto_points, dim=0).values
@@ -397,8 +419,11 @@ class BayesianOptimizer:
         
         # The final Δ value is the maximum across all objectives
         delta_value = torch.max(delta_metric)
+
+        if delta_value == 0:
+            print("Diversity Metric is 0. All points are identical.")
         
-        return delta_value
+        return delta_value, delta_metric
 
     def calculate_pareto_points(self):
 
