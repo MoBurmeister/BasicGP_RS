@@ -63,6 +63,11 @@ class DataManager:
         else:
             initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, meta_data_dict, sampling_method, noise_level, identifier)
         check_type(initial_dataset, Dataset)
+
+        #only multi-objective is allowed here (otherwise problems with the code, which is setup for multi-objective)
+        if initial_dataset.output_dim == 1:
+            raise ValueError("Only multi-objective optimization is supported. Please provide more than one output dimension.")
+
         self.initial_dataset = initial_dataset
         self.set_check_input_output_dim(initial_dataset.input_dim, initial_dataset.output_dim)
         self.set_check_maximization_flags(dataset=initial_dataset)
@@ -208,23 +213,59 @@ class InitialDataLoader:
         scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
         inputs = torch.tensor(scaled_samples)
 
-        print(f"Input values are: {inputs}")
+        print(f"Input values are: {inputs} based on LHS sampling.")
 
         bounds_tensor = self.convert_bounds_to_tensor(bounds)
 
         # Collect user inputs for each input point
         outputs_list = []
         for i, input_point in enumerate(inputs):
-            print(f"Input point {i + 1}/{num_datapoints}: {input_point.tolist()}")
-            output_values = []
-            for j in range(num_outputs):
-                output_value = float(input(f"Enter the output value for the objective {output_parameter_name[j]} for this input point: "))
-                output_values.append(output_value)
-            outputs_list.append(output_values)
+            while True:
+                print(f"\nInput point {i + 1}/{num_datapoints}: {input_point.tolist()}")
+                output_values = []
+                
+                for j in range(num_outputs):
+                    while True:
+                        try:
+                            output_value = float(input(f"Enter the output value for the objective {j} '{output_parameter_name[j]}' for this input point: "))
+                        except ValueError:
+                            print("Invalid input. Please enter a numeric value.")
+                            continue
+                        
+                        # Confirm the entered value
+                        while True:
+                            confirmation = input(f"You entered {output_value} for '{output_parameter_name[j]}'. Is this correct? (y/n): ").strip().lower()
+                            if confirmation == 'y':
+                                output_values.append(output_value)
+                                break
+                            elif confirmation == 'n':
+                                print("Let's try again.")
+                                break
+                            else:
+                                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+                        
+                        # Break out of the outer loop if the value is confirmed
+                        if confirmation == 'y':
+                            break
 
+                # Confirm the entire input point
+                print("\nSummary of your input for this point:")
+                for j, value in enumerate(output_values):
+                    print(f"  {output_parameter_name[j]}: {value}")
+                
+                final_confirmation = input("Is this entire input point correct? (y/n): ").strip().lower()
+                if final_confirmation == 'y':
+                    outputs_list.append(output_values)
+                    break
+                elif final_confirmation == 'n':
+                    print("Let's start over for this input point.")
+                else:
+                    print("Invalid input. Please enter 'y' for yes or 'n' for no.")
 
         # Convert the collected outputs into a tensor
         outputs = torch.tensor(outputs_list).reshape(num_datapoints, num_outputs)
+
+        outputs = outputs.to(dtype=torch.float64)
 
         initial_dataset = Dataset(input_data=inputs, output_data=outputs, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, meta_data_dict=meta_data_dict, identifier=identifier)
 

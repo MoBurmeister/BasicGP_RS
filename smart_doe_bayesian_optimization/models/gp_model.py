@@ -36,8 +36,3 @@ class BaseModel(ABC):
     @abstractmethod
     def train_initially_gp_model(self):
         pass
-    
-
-    def print_model_info(self):
-        #print out the model information via print statement in the model class
-        pass

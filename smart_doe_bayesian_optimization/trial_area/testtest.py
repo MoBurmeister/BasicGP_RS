@@ -59,19 +59,41 @@ train_X = train_X.to(dtype=torch.float64)
 train_Y = train_Y*-1
 train_Y = train_Y.to(dtype=torch.float64)
 
-model = SingleTaskGP(train_X=train_X, train_Y=train_Y, input_transform=Normalize(d=5), outcome_transform=Standardize(m=3))
+num_objectives = train_Y.shape[1]
 
-mll = ExactMarginalLogLikelihood(likelihood=model.likelihood, model=model) 
+modelllist_gp = []
+
+for objective in range(num_objectives):
+    gp_model = SingleTaskGP(train_X=train_X, 
+                 train_Y=train_Y[:, objective].unsqueeze(-1),
+                 input_transform=Normalize(d=5), 
+                 outcome_transform=Standardize(m=1))
+    
+    modelllist_gp.append(gp_model)
+
+gp_modellist_1 = ModelList(*modelllist_gp)
+
+mll = SumMarginalLogLikelihood(likelihood=gp_modellist_1.likelihood, model=gp_modellist_1) 
 
 mll = fit_gpytorch_model(mll)
 
-model_2 = SingleTaskGP(train_X=train_X, train_Y=train_Y*0.7, input_transform=Normalize(d=5), outcome_transform=Standardize(m=3))
 
-mll_2 = ExactMarginalLogLikelihood(likelihood=model_2.likelihood, model=model_2) 
+modelllist_gp_2 = []
+
+for objective in range(num_objectives):
+    gp_model = SingleTaskGP(train_X=train_X, 
+                 train_Y=train_Y[:, objective].unsqueeze(-1),
+                 input_transform=Normalize(d=5), 
+                 outcome_transform=Standardize(m=1))
+    
+    modelllist_gp_2.append(gp_model)
+
+gp_modellist_2 = ModelList(*modelllist_gp_2)
+
+mll_2 = SumMarginalLogLikelihood(likelihood=gp_modellist_2.likelihood, model=gp_modellist_2) 
 
 mll_2 = fit_gpytorch_model(mll_2)
 
-posterior = model.posterior(train_X)
 
 class RGPE(GP, GPyTorchModel):
 

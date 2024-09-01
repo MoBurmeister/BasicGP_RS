@@ -69,8 +69,11 @@ class MultiSingletaskGPInitializer(BaseModel):
         gp_modellist = ModelListGP(*gp_model_list)
 
         if self.transfer_learning_method == "initial_transfer" or self.transfer_learning_method == "transfer_and_retrain":
+
+            if not self.dataset_manager.historic_dataset_list:
+                raise ValueError("No historic datasets found. Please provide at least one historic dataset for the Multi_RGPE!")
             
-            old_state_dict = gp_modellist.state_dict()
+            old_state_dict = gp_modellist.state_dict
 
             print("Old Parameters of the initial GP:")
             

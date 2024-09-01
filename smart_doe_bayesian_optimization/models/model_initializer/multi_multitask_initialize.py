@@ -54,10 +54,7 @@ class MultiMultitaskInitializer(BaseModel):
 
         self.gp_model = multitask_modellist
 
-        print("MultiMultitaskInitializer model successfully initialized.")
-    
-    def print_model_parameter(self):
-        pass
+        print(f"MultiMultitaskInitializer model successfully initialized. Number of multitask models: {self.gp_model.num_outputs} for {self.dataset_manager.initial_dataset.output_dim} objectives.")
 
     def train_initially_gp_model(self):
 

@@ -12,7 +12,7 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/smart_doe_bayesian_optimization/trial_area/testtest.py",
+            "program": "${workspaceFolder}/smart_doe_bayesian_optimization/main.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"

@@ -14,6 +14,7 @@ from datetime import datetime
 import os
 from optimization.stopping_criterion import Extended_ExpMAStoppingCriterion
 from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
+from models.model_initializer.multi_rgpe_initializer import MultiRGPEInitializer
 import numpy as np
 
 class BayesianOptimizer:
@@ -21,6 +22,7 @@ class BayesianOptimizer:
     def __init__(
         self,
         multiobjective_model: BaseModel,
+        bool_optional_ending_optimization_each_iteration: bool,
         parameter_constraints_equality: Optional[Callable] = None,
         parameter_constraints_inequality: Optional[Callable] = None,
         parameter_constraints_nonlinear_inequality: Optional[Callable] = None,
@@ -40,10 +42,12 @@ class BayesianOptimizer:
         # No implementation of constraints yet. Will cause way longer runtime and not necessary yet
         self.parameter_constraints_equality = parameter_constraints_equality
         self.parameter_constraints_inequality = parameter_constraints_inequality
-        self.parameter_constraints_nonlinear_inequality = parameter_constraints_nonlinear_inequality    
+        self.parameter_constraints_nonlinear_inequality = parameter_constraints_nonlinear_inequality
+        self.bool_optional_ending_optimization_each_iteration = bool_optional_ending_optimization_each_iteration
 
         self.output_constraints = output_constraints
         self.next_input_setting = None
+        self.exit_optimization = False
         self.next_observation = None
         self.external_input = multiobjective_model.dataset_manager.external_input
         self.save_file_name = save_file_name
@@ -99,6 +103,48 @@ class BayesianOptimizer:
         else:
             print("New Reference Point is not worse in any dimension. No update performed.")
 
+    def check_end_optimization(self) -> bool:
+        print("\n" + "="*50)
+        print("ATTENTION:")
+        print("Do you want to END the optimization? (y/n)")
+        print("="*50)
+
+        while True:
+            user_input = input("Please enter your choice: ").strip().lower()
+            if user_input == 'y':
+                # Ask for confirmation
+                print("\n" + "="*50)
+                print("CONFIRMATION REQUIRED:")
+                print("Are you SURE you want to END the optimization? (y/n)")
+                print("="*50)
+                
+                while True:
+                    confirmation = input("Please confirm your choice: ").strip().lower()
+                    if confirmation == 'y':
+                        print("\n" + "="*50)
+                        print("ENDING the optimization as per user request.")
+                        print("="*50 + "\n")
+                        return True
+                    elif confirmation == 'n':
+                        print("\n" + "="*50)
+                        print("Cancellation confirmed. Continuing with the optimization.")
+                        print("="*50 + "\n")
+                        return False
+                    else:
+                        print("\n" + "="*50)
+                        print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+                        print("="*50)
+
+            elif user_input == 'n':
+                print("\n" + "="*50)
+                print("Continuing with the optimization.")
+                print("="*50 + "\n")
+                return False
+            else:
+                print("\n" + "="*50)
+                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+                print("="*50)
+
     def optimization_iteration(self, iteration_num: int):
         #in the first stage I will only incorporate the qnehvi acquisition function
         '''
@@ -112,13 +158,14 @@ class BayesianOptimizer:
         '''
         Since botorch assumes a maximization of all objectives, we seek to find the Pareto frontier, 
         the set of optimal trade-offs where improving one metric means deteriorating another.
+
         '''
 
         self.validate_output_constraints()
 
-        if self.multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0] == 0:
+        if (self.multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0] == 0 or isinstance(self.multiobjective_model, MultiRGPEInitializer)):
             prune_baseline_check = False
-            #print(f"Initial dataset is empty. Prune baseline set to False.")
+            print(f"Initial dataset is empty. Prune baseline set to False.")
         else:
             prune_baseline_check = True
             #print(f"Initial dataset is not empty. Prune baseline set to True.")
@@ -206,34 +253,64 @@ class BayesianOptimizer:
     
     def get_next_manual_observation(self):
         
-        next_observation = []
+        while True:
+            # Gather the number of outputs (objectives) from the model's dataset manager
+            num_outputs = self.multiobjective_model.dataset_manager.output_dim
 
-        # Gather the number of outputs (objectives) from the model's dataset manager
-        num_outputs = self.multiobjective_model.dataset_manager.output_dim
+            # Gather maximization flags
+            maximization_flags = self.multiobjective_model.dataset_manager.maximization_flags
 
-        # Gather maximization flags
-        maximization_flags = self.multiobjective_model.dataset_manager.maximization_flags
+            # Placeholder for output parameter names
+            output_parameter_names = self.multiobjective_model.dataset_manager.output_parameter_name
 
-        # Placeholder for output parameter names
-        output_parameter_names = self.multiobjective_model.dataset_manager.output_parameter_name
+            print("Please provide the output values for the given input manually.")
 
-        print("Please provide the output values for the given input manually.")
+            # Loop to get the output values for each objective from the user with confirmation
+            output_values = []
+            for j in range(num_outputs):
+                while True:
+                    try:
+                        # Prompt for the output value
+                        output_value = float(input(f"Enter the output value for the objective '{output_parameter_names[j]}' for this input point: "))
+                    except ValueError:
+                        print("Invalid input. Please enter a numeric value.")
+                        continue
 
-        # Loop to get the output values for each objective from the user
-        output_values = []
-        for j in range(num_outputs):
-            while True:
-                try:
-                    output_value = float(input(f"Enter the output value for the objective '{output_parameter_names[j]}' for this input point: "))
-                    break
-                except ValueError:
-                    print("Invalid input. Please enter a numeric value.")
-            output_values.append(output_value)
-        
-        next_observation.append(output_values)
+                    # Confirm the entered value
+                    while True:
+                        confirmation = input(f"You entered {output_value} for '{output_parameter_names[j]}'. Is this correct? (y/n): ").strip().lower()
+                        if confirmation == 'y':
+                            output_values.append(output_value)
+                            break
+                        elif confirmation == 'n':
+                            print("Let's try again.")
+                            break
+                        else:
+                            print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+
+                    # Break out of the outer loop if the value is confirmed
+                    if confirmation == 'y':
+                        break
+
+            # Summary and final confirmation of all inputs
+            print("\nSummary of your input:")
+            for j, value in enumerate(output_values):
+                print(f"  {output_parameter_names[j]}: {value}")
+
+            final_confirmation = input("Is this entire input correct? (y/n): ").strip().lower()
+            if final_confirmation == 'y':
+                break
+            elif final_confirmation == 'n':
+                print("Let's start over.")
+                continue
+            else:
+                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+                continue
 
         # Convert the list to a torch tensor and reshape it to [1, num_outputs]
         next_observation = torch.tensor(output_values).view(1, num_outputs)
+
+        next_observation = next_observation.to(torch.float64)
 
         # Negate the values in next_observation for dimensions where the maximization flag is False
         for i, flag in enumerate(maximization_flags):
@@ -252,6 +329,14 @@ class BayesianOptimizer:
 
         if num_max_iterations < num_min_iterations:
             raise ValueError("The number of maximum iterations must be greater than or equal to the number of minimum iterations.")
+        
+        # Create a unique folder for this optimization run
+        current_date_time = datetime.now().strftime("%Y%m%d_%H%M")
+        run_folder_name = f"{current_date_time}_BOMOGP_TL_Opt_{self.save_file_name}"
+        run_folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export", run_folder_name)
+        
+        # Ensure the folder exists
+        os.makedirs(run_folder_path, exist_ok=True)
 
         #calculate and add initial hypervolume:
         initial_hypervolume = self.calculate_hypervolume()
@@ -263,6 +348,12 @@ class BayesianOptimizer:
         self.optimization_loop_data_dict[0]["diversity_metric"] = initial_diversity_metric.item()
         self.optimization_loop_data_dict[0]["diversity_metric_list"] = initial_diversity_metric_list
         print(f"Initial Diversity Metric: {initial_diversity_metric}")
+
+
+        if isinstance(self.multiobjective_model, MultiRGPEInitializer):
+            #save the model weights for the RGPE model
+            weights = self.multiobjective_model.calculated_weights
+            self.optimization_loop_data_dict[0]["RGPE_weights"] = weights    
 
         #initiating stopping criterion classes
         #Note: set minimize to false, when considered measurement is maximized (e.g. hypervolume)
@@ -277,7 +368,15 @@ class BayesianOptimizer:
 
             self.optimization_loop_data_dict[iteration + 1] = {}
 
+            if self.bool_optional_ending_optimization_each_iteration:
+
+                self.exit_optimization = self.check_end_optimization()
+
+            if self.exit_optimization:
+                break
+
             self.optimization_iteration(iteration_num = iteration)
+
             #after this the next best point is found, sampled and also added to the dataset!
             iteration_end_time = time.time()
             iteration_duration = iteration_end_time - iteration_start_time
@@ -301,6 +400,11 @@ class BayesianOptimizer:
                 else:
                     rate_of_change = (hypervolume - previous_hypervolume) / previous_hypervolume
                 self.optimization_loop_data_dict[iteration + 1]["hypervolume_rate_of_change"] = rate_of_change
+
+                if isinstance(self.multiobjective_model, MultiRGPEInitializer):
+                    #save the model weights for the RGPE model
+                    weights = self.multiobjective_model.calculated_weights
+                    self.optimization_loop_data_dict[iteration+1]["RGPE_weights"] = weights   
 
                 #diversity metric calculation
                 diversity_metric , diversity_metric_list = self.calculate_diversity_metric()
@@ -340,7 +444,10 @@ class BayesianOptimizer:
                 self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = stopping_criterion_hypervolume.rel_values[-1]
             else:
                 self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_value"] = None
-                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = None       
+                self.optimization_loop_data_dict[iteration+1]["hypervolume_ma_rel_value"] = None      
+
+            # Save the data after each iteration into the specific run folder
+            self.save_iteration_data(iteration_num=iteration, run_folder_path=run_folder_path) 
 
             print(50*"*")
 
@@ -364,13 +471,31 @@ class BayesianOptimizer:
 
         # Create a folder name based on the current date and time
         folder_name = f"{current_date_time}_BOMOGP_TL_Opt_{self.save_file_name}"
-        
-        folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "multi_singletaskgp_data_export")
 
         # Export everything via function
-        export_everything(multiobjective_model=self.multiobjective_model, optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, fig_list=self.export_figures, folder_path=folder_path, folder_name=folder_name, file_format="xlsx")
-        print(f"Optimization data exported to folder in path: {folder_path}")
+        export_everything(multiobjective_model=self.multiobjective_model, optimization_dict=self.optimization_loop_data_dict, results_dict=self.results_dict, fig_list=self.export_figures, folder_path=run_folder_path, folder_name=folder_name, file_format="xlsx")
+        print(f"Optimization data exported to folder in path: {run_folder_path}")
         print(50*"#")
+
+    def save_iteration_data(self, iteration_num: int, run_folder_path: str):
+        # Create a folder name for the specific iteration
+        iteration_folder_name = f"iter_{iteration_num}"
+        iteration_folder_path = os.path.join(run_folder_path, iteration_folder_name)
+        
+        # Ensure the folder exists
+        os.makedirs(iteration_folder_path, exist_ok=True)
+
+        # Save the current optimization loop data, results, and figures
+        export_everything(
+            multiobjective_model=self.multiobjective_model, 
+            optimization_dict=self.optimization_loop_data_dict, 
+            results_dict=self.results_dict, 
+            fig_list=self.export_figures, 
+            folder_path=iteration_folder_path,  # Use the specific iteration folder
+            folder_name="",  # No need to specify a separate folder name inside this path
+            file_format="xlsx"
+        )
+        print(f"Iteration {iteration_num + 1} data exported to folder: {iteration_folder_path}")
 
     def calculate_hypervolume(self):
 
