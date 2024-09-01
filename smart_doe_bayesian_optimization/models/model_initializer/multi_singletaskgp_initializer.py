@@ -73,7 +73,7 @@ class MultiSingletaskGPInitializer(BaseModel):
             if not self.dataset_manager.historic_dataset_list:
                 raise ValueError("No historic datasets found. Please provide at least one historic dataset for the Multi_RGPE!")
             
-            old_state_dict = gp_modellist.state_dict
+            old_state_dict = gp_modellist.state_dict()
 
             print("Old Parameters of the initial GP:")
             
@@ -141,6 +141,8 @@ class MultiSingletaskGPInitializer(BaseModel):
 
         if len(self.dataset_manager.historic_dataset_list) == 0 and self.transfer_learning_method != "no_transfer":
             raise ValueError("No historic data available. Please set transfer_learning_method to 'no_transfer'.")
+        
+        print(f"Reinitializing model with {self.dataset_manager.initial_dataset.input_data.shape[0]} data points for iteration {current_iteration}.")
 
         if self.transfer_learning_method == "no_transfer":
             
@@ -272,10 +274,15 @@ class MultiSingletaskGPInitializer(BaseModel):
         num_datasets = len(self.dataset_manager.historic_dataset_list)
 
         if self.bool_transfer_averaging:
+
+            print("Averaging weights for transfer learning.")
        
             weights = [1.0 / num_datasets] * num_datasets
 
         else:
+
+            print("Calculating weights for transfer learning based on dataset meta feature similiarity via euclidian distance.")
+
             # weighted average for weights according to dataset meta features
             historic_datasetinfo_list = self.dataset_manager.historic_datasetinfo_list
             initial_dataset_metafeatures = self.dataset_manager.initial_dataset.meta_data_dict

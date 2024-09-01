@@ -39,7 +39,8 @@ for variation_factor in variation_factors:
     multi_singletaskgp.train_initially_gp_model()
 
     bayesian_optimizer = BayesianOptimizer(multiobjective_model=multi_singletaskgp,
-                                           save_file_name=f"var_fac_{variation_factor}")
+                                           bool_optional_ending_optimization_each_iteration=False,
+                                           save_file_name=f"SECOND_{variation_factor}")
     
     bayesian_optimizer.optimization_loop(use_stopping_criterion=True,
                                          num_max_iterations=num_max_iterations, 

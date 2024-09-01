@@ -21,6 +21,7 @@ class DataManager:
         self.initial_dataset = None
         self.input_parameter_name = None
         self.output_parameter_name = None
+        self.meta_data_dict = None
         #init continues below
         '''
         How the dataset looks like: 
@@ -47,6 +48,10 @@ class DataManager:
         self.input_parameter_name = input_parameter_name
         self.output_parameter_name = output_parameter_name
 
+        #must be more than 0 datapoints
+        if num_datapoints == 0:
+            raise ValueError("Number of datapoints must be greater than 0.")
+
         #check meta_data_dict
 
         # Check if meta_data_dict is a non-empty dictionary
@@ -57,10 +62,21 @@ class DataManager:
         for key, value in meta_data_dict.items():
             if not isinstance(value, (float, int)):
                 raise ValueError(f"The value for '{key}' in meta_data_dict must be an int or float, but got {type(value).__name__}.")
+            
+        #save meta data dict
+        self.meta_data_dict = meta_data_dict
+            
+        # print meta_data_dict
+        print("Meta data dictionary of initial dataset:")
+        for key, value in meta_data_dict.items():
+            print(f"  {key}: {value}")
 
         if self.external_input:
             initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, meta_data_dict, identifier=identifier)
         else:
+            #check that a dataset function is provided
+            if self.dataset_func is None:
+                raise ValueError("No dataset function provided. Please provide a dataset function to load the initial dataset.")
             initial_dataset = self.initial_data_loader.load_dataset(self.dataset_func, num_datapoints, bounds, maximization_flags, meta_data_dict, sampling_method, noise_level, identifier)
         check_type(initial_dataset, Dataset)
 
@@ -79,6 +95,10 @@ class DataManager:
         print('-' * 50)
 
     def load_historic_data(self):
+
+        #there needs to be an initial dataset setup:
+        if self.initial_dataset is None:
+            raise ValueError("No initial dataset set. Please load an initial dataset first.")
         
         if self.historic_data_path is None:
             raise ValueError("No historic data path provided. Please provide a path to load historic data.")
@@ -89,6 +109,19 @@ class DataManager:
         self.historic_modelinfo_list = model_info_list
         self.historic_datasetinfo_list = dataset_info_list
         self.historic_dataset_list = dataset_list
+
+        for historic_dataset in self.historic_datasetinfo_list:
+            #print(historic_dataset)
+            meta_data_dict = historic_dataset['metafeatures']
+            #check that the structure of the meta data dict is the same as the inital dataset but do not need to be the same values
+            if meta_data_dict.keys() != self.meta_data_dict.keys():
+                raise ValueError("Meta data dictionary of historic dataset does not match the meta data dictionary of the initial dataset.")
+
+        for historic_dataset in self.historic_datasetinfo_list:
+            # print out meta data dict
+            print("Meta data dictionary: of one historic dataset:")
+            for key, value in historic_dataset['metafeatures'].items():
+                print(f"  {key}: {value}")
         
 
     def add_point_to_initial_dataset(self, point: Tuple[torch.Tensor, torch.Tensor]):

@@ -430,6 +430,8 @@ class MultiRGPEInitializer(BaseModel):
 
     def reinitialize_model(self, current_iteration: int):
 
+        print(f"Reinitializing model with {self.dataset_manager.initial_dataset.input_data.shape[0]} data points for iteration {current_iteration}.")
+
         num_objectives = self.dataset_manager.output_dim
 
         modelllist_gp = []
