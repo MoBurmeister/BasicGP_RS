@@ -330,8 +330,10 @@ class MultiSingletaskGPInitializer(BaseModel):
 
             print(f"Calculated weights for transfer learning: {weights}")
 
+            weights = weights.tolist()
+
             
-        return weights.tolist()
+        return weights
 
 
     #OLD:

@@ -53,7 +53,7 @@ meta_data_dict = {
     "var_factor": variation_factor
 }
 
-main_dataset.load_initial_dataset(num_datapoints=5, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, sampling_method="LHS")
+main_dataset.load_initial_dataset(num_datapoints=9, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, sampling_method="LHS")
 
 main_dataset.load_historic_data()
 
