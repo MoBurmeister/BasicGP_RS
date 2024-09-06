@@ -153,6 +153,36 @@ class FunctionFactory:
 
         return torch.tensor(results, dtype=torch.float64), expected_output_shape
     
+
+    @staticmethod
+
+    #_max_hv = 59.36011874867746  # this is approximated using NSGA-II
+
+    def BraninCurrin(inputs):
+        def evaluate_true(X: Tensor) -> Tensor:
+            # Rescale inputs for Branin
+            x0 = 15 * X[..., 0] - 5
+            x1 = 15 * X[..., 1]
+            
+            # Branin function (using the rescaled x0, x1)
+            f1 = (
+                (x1 - 5.1 * x0 ** 2 / (4 * math.pi ** 2) + 5 * x0 / math.pi - 6) ** 2
+                + 10 * (1 - 1 / (8 * math.pi)) * torch.cos(x0) + 10
+            )
+            
+            # Currin function (no change needed)
+            f2 = (
+                (1 - torch.exp(-1 / (2 * X[..., 1]))) * (
+                    2300 * X[..., 0] ** 3 + 1900 * X[..., 0] ** 2 + 2092 * X[..., 0] + 60
+                ) / (100 * X[..., 0] ** 3 + 500 * X[..., 0] ** 2 + 4 * X[..., 0] + 20)
+            )
+            return torch.stack([f1, f2], dim=-1)
+        
+        expected_output_shape = 2
+
+        return evaluate_true(inputs), expected_output_shape
+            
+    
     @staticmethod
     def welding_beam(inputs):
         '''

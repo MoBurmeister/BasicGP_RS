@@ -23,8 +23,8 @@ class MultiSingletaskGPInitializer(BaseModel):
         #string to clarify transfer learning method
         self.transfer_learning_method = transfer_learning_method
         self.bool_transfer_averaging = bool_transfer_averaging  #if true, the hyperparameters are averaged over all historic datasets
-        self.lr = 0.0001
-        self.step_limit = 10
+        self.lr = 0.01
+        self.step_limit = 100
     
     def initially_setup_model(self): 
         '''

@@ -47,15 +47,16 @@ variation_factor = 0.0
 
 vehicle_crash = FunctionFactory(variation_factor=variation_factor)
 
-main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.generate_car_crash_synthetic_data, historic_data_path="smart_doe_bayesian_optimization\\data_import\\test_data_import", variation_factor=variation_factor)
+main_dataset = DataManager(external_input=False, dataset_func=vehicle_crash.BraninCurrin, historic_data_path="smart_doe_bayesian_optimization\\data_import\\test_data_import", variation_factor=variation_factor)
 
 meta_data_dict = {
     "var_factor": variation_factor
 }
 
-main_dataset.load_initial_dataset(num_datapoints=9, bounds=[(1.0, 3.0)] * 5, maximization_flags=[False, False, False], input_parameter_name=["x1", "x2", "x3", "x4", "x5"], output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, sampling_method="LHS")
+main_dataset.load_initial_dataset(num_datapoints=15, bounds=[(0.0, 1.0), (0.0, 1.0)], maximization_flags=[False, False], input_parameter_name=["x1", "x2"], output_parameter_name=["y1", "y2"], meta_data_dict=meta_data_dict, sampling_method="LHS")
 
-main_dataset.load_historic_data()
+
+# main_dataset.load_historic_data()
 
 # multi_rgpe = MultiRGPEInitializer(dataset=main_dataset, weight_calculation_method="objective_wise")
 
@@ -67,7 +68,7 @@ main_dataset.load_historic_data()
 
 # bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
 
-multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="transfer_and_retrain", bool_transfer_averaging=False)
+multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer", bool_transfer_averaging=False)
 
 multisingletaskgp.initially_setup_model()    
 
@@ -75,9 +76,9 @@ multisingletaskgp.train_initially_gp_model()
 
 #reference point handed over as negative values! , reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64)
 
-bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, bool_optional_ending_optimization_each_iteration=False, reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), save_file_name="var_fac_-0_05")
+bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, bool_optional_ending_optimization_each_iteration=False, reference_point=torch.tensor([-18.0, -6.0], dtype=torch.float64), save_file_name="var_fac_-0_05")
 
-bayesian_optimizer.optimization_loop(num_max_iterations=35, num_min_iterations=1)
+bayesian_optimizer.optimization_loop(num_max_iterations=50, num_min_iterations=1)
 
 # multi_rgpe = MultiRGPEInitializer(dataset=main_dataset)
 
