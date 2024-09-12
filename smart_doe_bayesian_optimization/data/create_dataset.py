@@ -6,6 +6,7 @@ import pickle
 import os
 import numpy as np
 from scipy.stats import qmc
+import pandas as pd
 
 class DataManager:
 
@@ -48,6 +49,18 @@ class DataManager:
         self.input_parameter_name = input_parameter_name
         self.output_parameter_name = output_parameter_name
 
+        #check that the sampling method is valid
+        if sampling_method not in ['random', 'grid', 'LHS', 'from_file']:
+            raise ValueError("Sampling method must be 'random', 'grid', 'LHS' or 'from_file'.")
+
+        # check, that number of tuples in bounds matches number of input parameter names
+        if len(bounds) != len(input_parameter_name):
+            raise ValueError("Number of bounds must match the number of input parameter names. Equal number of input parameters!")
+        
+        # check, that number of maximization flags matches number of output parameter names 
+        if len(maximization_flags) != len(output_parameter_name):
+            raise ValueError("Number of maximization flags must match the number of output parameter names. Equal number of output objectives!")
+
         #must be more than 0 datapoints
         if num_datapoints == 0:
             raise ValueError("Number of datapoints must be greater than 0.")
@@ -72,7 +85,8 @@ class DataManager:
             print(f"  {key}: {value}")
 
         if self.external_input:
-            initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, meta_data_dict, identifier=identifier)
+            # since in literature basicaly only LHS is recommended, it is only implemented here for manual dataset sampling. Besides this a complete manual data input is allowed
+            initial_dataset = self.initial_data_loader.create_inital_dataset_manually(num_datapoints, bounds, maximization_flags, self.input_parameter_name, self.output_parameter_name, meta_data_dict, sampling_method, identifier=identifier)
         else:
             #check that a dataset function is provided
             if self.dataset_func is None:
@@ -191,7 +205,7 @@ class InitialDataLoader:
         num_dimensions = len(bounds)
 
         if sampling_method not in ['random', 'grid', 'LHS']:
-            raise ValueError("Sampling method must be 'random', 'grid' or 'LHS'.")
+            raise ValueError("Sampling method must be 'random', 'grid' or 'LHS'. Everything else and from_file input is not supported here!")
 
         print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
         
@@ -228,77 +242,117 @@ class InitialDataLoader:
         return initial_datset
     
 
-    def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], meta_data_dict: dict, identifier: int=None):
-
-        #just LHS supported due to scientific literature
-
-        print(f"Dataset is created manually based on LHS sampling.")
-
+    def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], meta_data_dict: dict, sampling_method: str, identifier: int=None):
+        
+        #check that the sampling method is valid
+        if sampling_method not in ['LHS', 'from_file']:
+            raise ValueError("Sampling method must be'LHS' or 'from_file'. Grid and random are not supported for manual input here!")
+        
         num_datapoints = num_datapoints
         num_dimensions = len(bounds)
         num_outputs = len(maximization_flags)
+    
+        if sampling_method == 'LHS':
 
-        print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
+            #just LHS supported due to scientific literature
 
-        sampler = qmc.LatinHypercube(d=num_dimensions)
-        samples = sampler.random(n=num_datapoints)
-        lower_bounds, upper_bounds = zip(*bounds)
-        scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
-        inputs = torch.tensor(scaled_samples)
+            print(f"Dataset is created manually based on LHS sampling.")
 
-        print(f"Input values are: {inputs} based on LHS sampling.")
+            print(f"Loading initial dataset with {num_datapoints}, from literature {11*num_dimensions-1} datapoints are recommended!")
+
+            sampler = qmc.LatinHypercube(d=num_dimensions)
+            samples = sampler.random(n=num_datapoints)
+            lower_bounds, upper_bounds = zip(*bounds)
+            scaled_samples = qmc.scale(samples, lower_bounds, upper_bounds)
+            inputs = torch.tensor(scaled_samples)
+
+            print(f"Input values are: {inputs} based on LHS sampling.")
+
+            # Collect user inputs for each input point
+            outputs_list = []
+            for i, input_point in enumerate(inputs):
+                while True:
+                    print(f"\nInput point {i + 1}/{num_datapoints}: {input_point.tolist()}")
+                    output_values = []
+                    
+                    for j in range(num_outputs):
+                        while True:
+                            try:
+                                output_value = float(input(f"Enter the output value for the objective {j} '{output_parameter_name[j]}' for this input point: "))
+                            except ValueError:
+                                print("Invalid input. Please enter a numeric value.")
+                                continue
+                            
+                            # Confirm the entered value
+                            while True:
+                                confirmation = input(f"You entered {output_value} for '{output_parameter_name[j]}'. Is this correct? (y/n): ").strip().lower()
+                                if confirmation == 'y':
+                                    output_values.append(output_value)
+                                    break
+                                elif confirmation == 'n':
+                                    print("Let's try again.")
+                                    break
+                                else:
+                                    print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+                            
+                            # Break out of the outer loop if the value is confirmed
+                            if confirmation == 'y':
+                                break
+
+                    # Confirm the entire input point
+                    print("\nSummary of your input for this point:")
+                    for j, value in enumerate(output_values):
+                        print(f"  {output_parameter_name[j]}: {value}")
+                    
+                    final_confirmation = input("Is this entire input point correct? (y/n): ").strip().lower()
+                    if final_confirmation == 'y':
+                        outputs_list.append(output_values)
+                        break
+                    elif final_confirmation == 'n':
+                        print("Let's start over for this input point.")
+                    else:
+                        print("Invalid input. Please enter 'y' for yes or 'n' for no.")
+
+            # Convert the collected outputs into a tensor
+            outputs = torch.tensor(outputs_list).reshape(num_datapoints, num_outputs)
+
+            outputs = outputs.to(dtype=torch.float64)
+
+        elif sampling_method == 'from_file':
+            # Load data from Excel
+            directory = 'smart_doe_bayesian_optimization/input_data_custom_initial_dataset/'
+            excel_files = [f for f in os.listdir(directory) if f.endswith('.xlsx')]
+            
+            if not excel_files:
+                raise FileNotFoundError("No Excel file found in the directory.")
+            
+            file_path = os.path.join(directory, excel_files[0])
+            df = pd.read_excel(file_path, sheet_name=0)
+
+            # Assume the first num_dimensions columns are inputs and the remaining columns are outputs
+            inputs_df = df.iloc[:, :num_dimensions]
+            outputs_df = df.iloc[:, num_dimensions + 1:num_dimensions + 1 + num_outputs]
+
+            # Convert the DataFrame to tensors
+            inputs = torch.tensor(inputs_df.values, dtype=torch.float64)
+            outputs = torch.tensor(outputs_df.values, dtype=torch.float64)
+
+            #check if number of datapoints matches
+            if inputs.shape[0] != num_datapoints:
+                raise ValueError(f"Number of datapoints in the Excel file ({inputs.shape[0]}) does not match the provided number of datapoints ({num_datapoints}).")
+            
+            #check if number of input dimensions matches
+            if inputs.shape[1] != num_dimensions:
+                raise ValueError(f"Number of input dimensions in the Excel file ({inputs.shape[1]}) does not match the provided number of input dimensions ({num_dimensions}).")
+            
+            #check if number of output dimensions matches
+            if outputs.shape[1] != num_outputs:
+                raise ValueError(f"Number of output dimensions in the Excel file ({outputs.shape[1]}) does not match the provided number of output dimensions ({num_outputs}).")
+            
+            print(f"Input values are: {inputs} loaded from provided excel file. Shape is {inputs.shape}")
+            print(f"Output values are: {outputs} loaded from provided excel file. Shape is {outputs.shape}")
 
         bounds_tensor = self.convert_bounds_to_tensor(bounds)
-
-        # Collect user inputs for each input point
-        outputs_list = []
-        for i, input_point in enumerate(inputs):
-            while True:
-                print(f"\nInput point {i + 1}/{num_datapoints}: {input_point.tolist()}")
-                output_values = []
-                
-                for j in range(num_outputs):
-                    while True:
-                        try:
-                            output_value = float(input(f"Enter the output value for the objective {j} '{output_parameter_name[j]}' for this input point: "))
-                        except ValueError:
-                            print("Invalid input. Please enter a numeric value.")
-                            continue
-                        
-                        # Confirm the entered value
-                        while True:
-                            confirmation = input(f"You entered {output_value} for '{output_parameter_name[j]}'. Is this correct? (y/n): ").strip().lower()
-                            if confirmation == 'y':
-                                output_values.append(output_value)
-                                break
-                            elif confirmation == 'n':
-                                print("Let's try again.")
-                                break
-                            else:
-                                print("Invalid input. Please enter 'y' for yes or 'n' for no.")
-                        
-                        # Break out of the outer loop if the value is confirmed
-                        if confirmation == 'y':
-                            break
-
-                # Confirm the entire input point
-                print("\nSummary of your input for this point:")
-                for j, value in enumerate(output_values):
-                    print(f"  {output_parameter_name[j]}: {value}")
-                
-                final_confirmation = input("Is this entire input point correct? (y/n): ").strip().lower()
-                if final_confirmation == 'y':
-                    outputs_list.append(output_values)
-                    break
-                elif final_confirmation == 'n':
-                    print("Let's start over for this input point.")
-                else:
-                    print("Invalid input. Please enter 'y' for yes or 'n' for no.")
-
-        # Convert the collected outputs into a tensor
-        outputs = torch.tensor(outputs_list).reshape(num_datapoints, num_outputs)
-
-        outputs = outputs.to(dtype=torch.float64)
 
         initial_dataset = Dataset(input_data=inputs, output_data=outputs, bounds=bounds_tensor, datamanager_type="initial", maximization_flags=maximization_flags, meta_data_dict=meta_data_dict, identifier=identifier)
 
