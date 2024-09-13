@@ -98,8 +98,9 @@ class BayesianOptimizer:
         updated_ref_point = torch.min(self.reference_point, new_ref_point)
 
         if not torch.equal(updated_ref_point, self.reference_point):
+            print(f"Updated Reference Point to {updated_ref_point} from old reference point: {self.reference_point}")
             self.reference_point = updated_ref_point
-            print(f"Reference Point updated to: {self.reference_point}")
+            
         else:
             print("New Reference Point is not worse in any dimension. No update performed.")
 
@@ -161,11 +162,14 @@ class BayesianOptimizer:
 
         '''
 
+        # Start timer for core optimization (before getting observation)
+        core_optimization_start_time = time.time()
+
         self.validate_output_constraints()
 
         if (self.multiobjective_model.dataset_manager.initial_dataset.input_data.shape[0] == 0 or isinstance(self.multiobjective_model, MultiRGPEInitializer)):
             prune_baseline_check = False
-            print(f"Initial dataset is empty. Prune baseline set to False.")
+            print(f"Initial dataset is empty or Model is MultiRGPE. Prune baseline set to False.")
         else:
             prune_baseline_check = True
             #print(f"Initial dataset is not empty. Prune baseline set to True.")
@@ -195,6 +199,13 @@ class BayesianOptimizer:
 
         self.next_input_setting = candidate
 
+        # Pause core optimization timer (before observation starts)
+        pre_observation_core_optimization_end_time = time.time()
+        pre_observation_core_optimization_duration = pre_observation_core_optimization_end_time - core_optimization_start_time
+
+        # Start the observation timer (manual or automatic observation phase)
+        observation_start_time = time.time()
+
         if self.external_input:
             print("External input is set to True. Target Observation is provided manually.")
             
@@ -204,6 +215,14 @@ class BayesianOptimizer:
         else:
             print("External input is set to False. Target Observation is not provided manually and instead via function internally.")
             self.get_next_observation()
+
+        # End the observation timer
+        observation_end_time = time.time()
+        observation_duration = observation_end_time - observation_start_time
+        self.optimization_loop_data_dict[iteration_num + 1]["observation_duration"] = observation_duration
+
+        # Resume core optimization timer (after observation ends)
+        post_observation_core_optimization_start_time = time.time()
 
         #only adjusted next_observation (based on maximization flags) will be added to dataset!        
         self.multiobjective_model.dataset_manager.add_point_to_initial_dataset(point=(self.next_input_setting, self.next_observation))
@@ -215,6 +234,14 @@ class BayesianOptimizer:
 
         self.multiobjective_model.reinitialize_model(current_iteration = iteration_num)
         print(f"reinitialized")
+
+        # End the core optimization timer (after post-observation tasks)
+        core_optimization_end_time = time.time()
+        post_observation_core_optimization_duration = core_optimization_end_time - post_observation_core_optimization_start_time
+
+        # Total core optimization time is the sum of pre-observation and post-observation times
+        total_core_optimization_duration = pre_observation_core_optimization_duration + post_observation_core_optimization_duration
+        self.optimization_loop_data_dict[iteration_num + 1]["core_optimization_duration"] = total_core_optimization_duration
         
 
     def validate_output_constraints(self):
@@ -365,8 +392,7 @@ class BayesianOptimizer:
 
         #this loop works on a stopping criterion, see above
         for iteration in range(num_max_iterations):
-            iteration_start_time = time.time()
-
+            
             self.optimization_loop_data_dict[iteration + 1] = {}
 
             if self.bool_optional_ending_optimization_each_iteration:
@@ -379,12 +405,8 @@ class BayesianOptimizer:
             self.optimization_iteration(iteration_num = iteration)
 
             #after this the next best point is found, sampled and also added to the dataset!
-            iteration_end_time = time.time()
-            iteration_duration = iteration_end_time - iteration_start_time
 
-            self.optimization_loop_data_dict[iteration+1]["iteration_duration"] = iteration_duration
-        
-            print(f"Iteration {iteration + 1} of max. {num_max_iterations} iterations completed. It took {iteration_duration:.2f} seconds.")
+            print(f"Iteration {iteration + 1} of max. {num_max_iterations} iterations completed. Core optimization time: {self.optimization_loop_data_dict[iteration + 1]['core_optimization_duration']:.2f} seconds. Observation time: {self.optimization_loop_data_dict[iteration + 1]['observation_duration']:.2f} seconds.")
 
             #Modulo to potentially adjust computationally expensive calculation of the hypervolume
             #Also integration of diversity metric calculation
@@ -501,6 +523,10 @@ class BayesianOptimizer:
     def calculate_hypervolume(self):
 
         self.calculate_pareto_points()
+
+        self.hypervolume_calculator.ref_point = self.reference_point
+
+        print(f"Reference Point in the HYPERVOLUME CALCULATOR is: {self.hypervolume_calculator.ref_point}")
 
         hypervolume = self.hypervolume_calculator.compute(pareto_Y=self.results_dict["pareto_points"])
 

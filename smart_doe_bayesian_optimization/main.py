@@ -43,6 +43,43 @@ botorch.utils.sampling.manual_seed(seed=seed)
 print(50*"-")
 
 
+# variation_factor = 0.0
+
+# vehicle_crash = FunctionFactory(variation_factor=variation_factor)
+
+# main_dataset = DataManager(external_input=False, 
+#                            dataset_func=vehicle_crash.generate_car_crash_synthetic_data, 
+#                            historic_data_path="smart_doe_bayesian_optimization\\data_import\\test_data_import", 
+#                            variation_factor=variation_factor)
+
+# meta_data_dict = {
+#     "var_factor": variation_factor
+# }
+
+# main_dataset.load_initial_dataset(num_datapoints=1, bounds=[(1.0, 3.0)] * 5, 
+#                                   maximization_flags=[False, False, False], 
+#                                   input_parameter_name=["x1", "x2", "x3", "x4", "x5"], 
+#                                   output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, 
+#                                   sampling_method="LHS")
+
+# main_dataset.load_historic_data()
+
+# multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="transfer_and_retrain", bool_transfer_averaging=True)
+
+# multisingletaskgp.initially_setup_model()    
+
+# multisingletaskgp.train_initially_gp_model()
+
+# #reference point handed over as negative values! , reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64)
+
+# bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, 
+#                                        bool_optional_ending_optimization_each_iteration=False, 
+#                                        reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), 
+#                                        save_file_name="avg_true")
+
+# bayesian_optimizer.optimization_loop(use_stopping_criterion=True, num_max_iterations=70, num_min_iterations=30)
+
+
 variation_factor = 0.0
 
 vehicle_crash = FunctionFactory(variation_factor=variation_factor)
@@ -62,46 +99,9 @@ main_dataset.load_initial_dataset(num_datapoints=1, bounds=[(1.0, 3.0)] * 5,
                                   output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, 
                                   sampling_method="LHS")
 
-main_dataset.load_historic_data()
+#main_dataset.load_historic_data()
 
-multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="transfer_and_retrain", bool_transfer_averaging=True)
-
-multisingletaskgp.initially_setup_model()    
-
-multisingletaskgp.train_initially_gp_model()
-
-#reference point handed over as negative values! , reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64)
-
-bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, 
-                                       bool_optional_ending_optimization_each_iteration=False, 
-                                       reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), 
-                                       save_file_name="avg_true")
-
-bayesian_optimizer.optimization_loop(use_stopping_criterion=True, num_max_iterations=70, num_min_iterations=30)
-
-
-variation_factor = 0.0
-
-vehicle_crash = FunctionFactory(variation_factor=variation_factor)
-
-main_dataset = DataManager(external_input=False, 
-                           dataset_func=vehicle_crash.generate_car_crash_synthetic_data, 
-                           historic_data_path="smart_doe_bayesian_optimization\\data_import\\test_data_import", 
-                           variation_factor=variation_factor)
-
-meta_data_dict = {
-    "var_factor": variation_factor
-}
-
-main_dataset.load_initial_dataset(num_datapoints=1, bounds=[(1.0, 3.0)] * 5, 
-                                  maximization_flags=[False, False, False], 
-                                  input_parameter_name=["x1", "x2", "x3", "x4", "x5"], 
-                                  output_parameter_name=["Mass", "A_inn", "Intrusion"], meta_data_dict=meta_data_dict, 
-                                  sampling_method="LHS")
-
-main_dataset.load_historic_data()
-
-multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="transfer_and_retrain", bool_transfer_averaging=False)
+multisingletaskgp = MultiSingletaskGPInitializer(dataset=main_dataset, transfer_learning_method="no_transfer", bool_transfer_averaging=False)
 
 multisingletaskgp.initially_setup_model()    
 
@@ -110,8 +110,7 @@ multisingletaskgp.train_initially_gp_model()
 #reference point handed over as negative values! , reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64)
 
 bayesian_optimizer = BayesianOptimizer(multiobjective_model=multisingletaskgp, 
-                                       bool_optional_ending_optimization_each_iteration=False, 
-                                       reference_point=torch.tensor([-1864.72022, -11.81993945, -0.2903999384], dtype=torch.float64), 
+                                       bool_optional_ending_optimization_each_iteration=False,  
                                        save_file_name="avg_false")
 
 bayesian_optimizer.optimization_loop(use_stopping_criterion=True, num_max_iterations=70, num_min_iterations=30)
