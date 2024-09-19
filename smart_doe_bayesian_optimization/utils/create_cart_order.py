@@ -17,30 +17,27 @@ def generate_robot_command(distance, max_speed, acceleration, deceleration):
     # Print initial inputs
     print(f"Initial Inputs:")
     print(f"  Distance (mm): {distance}")
-    print(f"  Max Speed (m/s): {max_speed}")
-    print(f"  Acceleration (m/s²): {acceleration}")
-    print(f"  Deceleration (m/s²): {deceleration}")
+    print(f"  Max Speed (m/min): {max_speed}")
+    print(f"  Acceleration (m/min²): {acceleration}")
+    print(f"  Deceleration (m/min²): {deceleration}")
     print(f"Generated Task ID: {task_id}\n")
     
-    # Convert units as required
-    # Distance stays in mm, no conversion required
-    # Convert max speed from m/s to m/min
-    max_speed_m_per_min = max_speed * 60
-    # Convert acceleration and deceleration from m/s² to m/min²
-    acceleration_m_per_min2 = acceleration * 3600
-    deceleration_m_per_min2 = deceleration * 3600
+    # Convert units for reference (these will not be used in calculations)
+    max_speed_m_per_s = max_speed / 60
+    acceleration_m_per_s2 = acceleration / 3600
+    deceleration_m_per_s2 = deceleration / 3600
     
-    # Print converted values
-    print(f"Converted Values:")
-    print(f"  Max Speed (m/min): {max_speed_m_per_min}")
-    print(f"  Acceleration (m/min²): {acceleration_m_per_min2}")
-    print(f"  Deceleration (m/min²): {deceleration_m_per_min2}\n")
+    # Print converted values (for reference)
+    print(f"Converted Values for Reference:")
+    print(f"  Max Speed (m/s): {max_speed_m_per_s:.4f}")
+    print(f"  Acceleration (m/s²): {acceleration_m_per_s2:.4f}")
+    print(f"  Deceleration (m/s²): {deceleration_m_per_s2:.4f}\n")
     
     # Convert input values to hexadecimal
     distance_hex = f"{distance:08X}".upper()  # 4 pairs of digits for distance
-    max_speed_hex = f"{int(max_speed_m_per_min):04X}".upper()  # 2 pairs of digits for max speed
-    acceleration_hex = f"{int(acceleration_m_per_min2):04X}".upper()  # 2 pairs of digits for acceleration
-    deceleration_hex = f"{int(deceleration_m_per_min2):04X}".upper()  # 2 pairs of digits for deceleration
+    max_speed_hex = f"{int(max_speed):04X}".upper()  # 2 pairs of digits for max speed
+    acceleration_hex = f"{int(acceleration):04X}".upper()  # 2 pairs of digits for acceleration
+    deceleration_hex = f"{int(deceleration):04X}".upper()  # 2 pairs of digits for deceleration
     
     # Print hex values
     print(f"Hexadecimal Values:")
@@ -64,10 +61,12 @@ def generate_robot_command(distance, max_speed, acceleration, deceleration):
     return final_command
 
 # Input values
-distance = 1500        # distance (in mm)
-max_speed = 1.0        # max speed (in m/s) - Max: 90 m/min which is 1.5 m/s
-acceleration = 3    # acceleration (in m/s^2) - Max is 18 000 m/min² which is 5 m/s² [0.0, 18000.0]
-deceleration = 3    # deceleration (in m/s^2) - Max is 18 000 m/min² which is 5 m/s² [0.0, 18000.0]
+distance = 1703        # distance (in mm) - values: 1278, 1703, 2128
+max_speed = 60       # WILL STAY FIXED max speed (in m/s) - Max: 90 m/min which is 1.5 m/s  so [0.0, 90.0] 
+acceleration = 10000    # acceleration (in m/s^2) - Max is 18 000 m/min² which is 5 m/s² [100, 10000.0]
+deceleration = 4403    # deceleration (in m/s^2) - Max is 18 000 m/min² which is 5 m/s² [100, 10000.0]
 
 # Generate command
 command = generate_robot_command(distance, max_speed, acceleration, deceleration)
+
+
