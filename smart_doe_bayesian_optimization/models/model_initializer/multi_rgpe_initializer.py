@@ -40,6 +40,8 @@ class MultiRGPEInitializer(BaseModel):
         if self.weight_calculation_method not in ["pareto_dominance", "objective_wise"]:
             raise ValueError('weight_calculation_method must be either "pareto_dominance" or "objective_wise".') 
         
+        print(f"Initializer found {len(self.dataset_manager.historic_datasetinfo_list)} datasets.")
+        
         self.weight_calculation_method = self.weight_calculation_method
 
         print(f"Setting up Multi-RGPE model with {len(self.dataset_manager.historic_dataset_list)} historic models and one current model.")
