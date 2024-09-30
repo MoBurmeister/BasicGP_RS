@@ -9,7 +9,7 @@ from visualization.visualization import GP_Visualizer
 import time
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from botorch.utils.multi_objective.pareto import is_non_dominated 
-from data_export.data_export import export_everything   
+from exp.data_export import export_everything   
 from datetime import datetime  
 import os
 from optimization.stopping_criterion import Extended_ExpMAStoppingCriterion

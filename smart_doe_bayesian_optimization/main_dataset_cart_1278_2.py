@@ -18,7 +18,7 @@ from botorch.test_functions.multi_objective import WeldedBeam
 from botorch.optim import optimize_acqf
 from botorch import fit_gpytorch_mll
 from botorch.optim import gen_batch_initial_conditions
-from data_export.data_export import export_only_in_out_data
+from exp.data_export import export_only_in_out_data
 from data.multitask_datasetmanager import MultiTaskDatasetManager
 from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
 from models.model_initializer.multi_rgpe_initializer import MultiRGPEInitializer
@@ -59,11 +59,11 @@ meta_data_dict = {
 
 #objectives: y1: minimize cycle time / y2: maximize accuracy (here minimize absolute difference)
 
-main_dataset.load_initial_dataset(num_datapoints=10, 
+main_dataset.load_initial_dataset(num_datapoints=1, 
                                   bounds=[(100, 10000), (100, 10000)], 
                                   maximization_flags=[False, False], 
                                   input_parameter_name=["acceleration", "deceleration"], 
-                                  output_parameter_name=["cycle_time", "accuracy"], 
+                                  output_parameter_name=["travel_time", "accuracy"], 
                                   meta_data_dict=meta_data_dict, 
                                   sampling_method="LHS")
 
