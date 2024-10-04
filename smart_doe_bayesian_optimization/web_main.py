@@ -41,6 +41,11 @@ def setup_first_model():
 
     matplotlib_to_png(first_gp.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
+<<<<<<< HEAD
+=======
+    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+    
+>>>>>>> main
     return first_gp
 
 def setup_optimizer(first_gp: BaseGPModel):
@@ -51,7 +56,11 @@ def setup_optimizer(first_gp: BaseGPModel):
 
     matplotlib_to_png(gp_optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
+<<<<<<< HEAD
     return gp_optimizer
+=======
+    matplotlib_to_png(acq_fig, 'acq_function_fig.png', "BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images")
+>>>>>>> main
 
 def perform_optimization_iteration(optimizer: GPOptimizer, observation: float):
 
@@ -59,8 +68,24 @@ def perform_optimization_iteration(optimizer: GPOptimizer, observation: float):
 
     optimizer.base_model.visualize_trained_model()
 
+<<<<<<< HEAD
     matplotlib_to_png(optimizer.base_model.model_plots_dict['dim_1']['plot'], 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
 
     optimizer.plot_acq_func(num_points=100)
 
     matplotlib_to_png(optimizer.acq_func_plot_dict["Dimension 1"], 'acq_func_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+=======
+    model_fig = optimizer.base_model.model_plots_dict['dim_1']['plot']    
+
+    matplotlib_to_png(model_fig, 'trained_model_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+
+    optimizer.plot_acq_func(num_points=100)
+
+    acq_fig = optimizer.acq_func_plot_dict["Dimension 1"]
+
+    matplotlib_to_png(acq_fig, 'acq_function_fig.png', 'BasicGP_RS\\smart_doe_bayesian_optimization\\flask_app\\static\\images')
+
+    next_value, acq_value = optimizer.optimization_iteration(num_restarts=num_restarts, raw_samples=raw_samples)
+
+    return next_value
+>>>>>>> main
