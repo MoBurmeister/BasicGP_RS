@@ -361,7 +361,7 @@ class BayesianOptimizer:
         # Create a unique folder for this optimization run
         current_date_time = datetime.now().strftime("%Y%m%d_%H%M")
         run_folder_name = f"{current_date_time}_BOMOGP_{self.save_file_name}"
-        run_folder_path = os.path.join("smart_doe_bayesian_optimization", "data_export", "scamel", run_folder_name)
+        run_folder_path = os.path.join("BasicGP_RS", "smart_doe_bayesian_optimization", "data_export", "vehicle_crash", run_folder_name)
         
         # Ensure the folder exists
         os.makedirs(run_folder_path, exist_ok=True)
