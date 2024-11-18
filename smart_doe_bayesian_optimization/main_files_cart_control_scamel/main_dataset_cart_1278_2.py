@@ -18,7 +18,7 @@ from botorch.test_functions.multi_objective import WeldedBeam
 from botorch.optim import optimize_acqf
 from botorch import fit_gpytorch_mll
 from botorch.optim import gen_batch_initial_conditions
-from exp.data_export import export_only_in_out_data
+from smart_doe_bayesian_optimization.data_export.data_export import export_only_in_out_data
 from data.multitask_datasetmanager import MultiTaskDatasetManager
 from models.model_initializer.multi_multitask_initialize import MultiMultitaskInitializer
 from models.model_initializer.multi_rgpe_initializer import MultiRGPEInitializer

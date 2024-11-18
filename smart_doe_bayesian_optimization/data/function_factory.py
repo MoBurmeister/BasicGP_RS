@@ -87,11 +87,11 @@ class FunctionFactory:
     @staticmethod
     def laser_heat_treatment(inputs):
         material_constants = {
-            'lambda_th': 24.3,  # Example value
-            'c_p': 389.36,       # Example value
-            'alpha': 0.22,     # Example value
-            'rho': 7800,      # Example value
-            'T_Haerten': 1010+273 # Example value, target temperature for hardening
+            'lambda_th': 7,  # Example value
+            'c_p': 580,       # Example value
+            'alpha': 0.59,     # Example value
+            'rho': 4420,      # Example value
+            'T_Haerten': 1233 # Example value, target temperature for hardening
         }
         # Extract material constants from the dictionary
         lambda_th = material_constants['lambda_th']
