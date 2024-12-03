@@ -396,7 +396,7 @@ class InitialDataLoader:
         return outputs + noise_level * torch.randn_like(outputs)
    
 
-#The historic dataloader will load GPs from statedict historic data. It will also provide 
+#The historic dataloader will load GPs from statedict historic data.
 
 class HistoricDataLoader:
     

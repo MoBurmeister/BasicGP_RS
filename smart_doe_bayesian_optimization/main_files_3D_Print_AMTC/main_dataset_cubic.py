@@ -8,12 +8,10 @@ from data.function_factory import FunctionFactory
 from gpytorch.constraints import GreaterThan
 import matplotlib.pyplot as plt
 from gpytorch.priors.torch_priors import GammaPrior
-from utils.config_parser_utils import config_parser
 from data.create_dataset import DataManager
 from utils.checking_utils import check_type
 from models.model_initializer.multi_singletaskgp_initializer import MultiSingletaskGPInitializer  
 from optimization.bayesian_optimizer import BayesianOptimizer
-from data.constraint_factory import WeldingConstraints
 from botorch.test_functions.multi_objective import WeldedBeam
 from botorch.optim import optimize_acqf
 from botorch import fit_gpytorch_mll
