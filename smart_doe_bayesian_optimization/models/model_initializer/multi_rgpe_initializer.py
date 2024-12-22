@@ -18,6 +18,47 @@ from botorch.models import MultiTaskGP, SingleTaskGP, ModelList, ModelListGP
 
 
 class MultiRGPEInitializer(BaseModel):
+    """
+    MultiRGPEInitializer is a class that initializes and sets up a Multi-Task Gaussian Process (GP) model using 
+    the Rank-Weighted Gaussian Process Ensemble (RGPE) method. It leverages both current and historic datasets 
+    to improve the model's performance.
+    Attributes:
+        dataset (DataManager): The dataset manager containing the initial and historic datasets.
+        weight_calculation_method (str): The method used to calculate weights for the RGPE. 
+                                         Must be either "pareto_dominance" or "objective_wise".
+        gp_model (ModelListGP): The final GP model after initialization.
+        fitted_historic_gp_models (list): List of fitted historic GP models.
+        target_gp_model (ModelListGP): The target GP model for the current dataset.
+        n_mc_samples (int): Number of Monte Carlo samples used for weight calculation.
+        calculated_weights (torch.Tensor): The calculated weights for the RGPE.
+    Methods:
+        __init__(self, dataset: DataManager, weight_calculation_method: str):
+            Initializes the MultiRGPEInitializer with the given dataset and weight calculation method.
+        setup_model(self, n_mc_samples):
+            Sets up the Multi-RGPE model with the specified number of Monte Carlo samples.
+        initialize_and_train_historic_models(self):
+            Initializes and trains GP models for each historic dataset.
+        initialize_single_gp_model(self, historic_dataset):
+            Initializes a single GP model for a given historic dataset.
+        compute_rank_weights_objective_wise(self, train_X, train_Y, historic_model_list, n_mc_samples):
+            Computes rank weights using the objective-wise method.
+        compute_rank_weights_pareto_dominance(self, train_X, train_Y, historic_model_list, n_mc_samples):
+            Computes rank weights using the Pareto dominance method.
+        get_target_model_loocv_sample_preds(self, train_X, train_Y, n_mc_samples):
+            Generates Leave-One-Out Cross-Validation (LOOCV) sample predictions for the target model.
+        compute_ranking_loss_objective_wise(self, target_f_samples, true_train_Y):
+            Computes the ranking loss for a single objective using the objective-wise method.
+        compute_ranking_loss_pareto_dominance(self, target_f_samples, true_train_Y):
+            Computes the ranking loss using the Pareto dominance method.
+        get_pareto_dominance(self, point_1, point_2):
+            Determines the Pareto dominance relationship between two points.
+        setup_multiple_rgpe(self, model_list, rank_weights_stacked):
+            Sets up the Multi-RGPE model with the given list of models and rank weights.
+        train_initially_gp_model(self):
+            Placeholder method for training the initial GP model. No training is done here.
+        reinitialize_model(self, current_iteration: int):
+            Reinitializes the model with the current dataset for a specified iteration.
+    """
     
     def __init__(self, dataset: DataManager, weight_calculation_method: str):
         super().__init__(dataset)
@@ -30,6 +71,24 @@ class MultiRGPEInitializer(BaseModel):
 
 
     def setup_model(self, n_mc_samples):
+        """
+        Sets up the Multi-RGPE model with the given number of Monte Carlo samples.
+        This method performs the following steps:
+        1. Validates the initial and historic datasets.
+        2. Prints the number of historic datasets found.
+        3. Sets the weight calculation method.
+        4. Initializes and trains historic models.
+        5. Initializes the target GP model for each objective.
+        6. Fits the target model.
+        7. Calculates rank weights based on the specified method.
+        8. Sets up the Multi-RGPE model with the calculated weights.
+        Args:
+            n_mc_samples (int): The number of Monte Carlo samples to use for weight calculation.
+        Raises:
+            ValueError: If no initial dataset is loaded.
+            ValueError: If no historic datasets are found.
+            ValueError: If the weight calculation method is invalid.
+        """
 
         if self.dataset_manager.initial_dataset.num_datapoints == 0:
             raise ValueError("At least one initial dataset must be loaded to initialize the model.")
@@ -116,6 +175,16 @@ class MultiRGPEInitializer(BaseModel):
         
 
     def initialize_and_train_historic_models(self):
+        """
+        Initializes and trains Gaussian Process (GP) models for each historic dataset.
+        This method iterates over the list of historic datasets managed by `self.dataset_manager`.
+        For each dataset, it initializes a single GP model, fits the model using the marginal log likelihood,
+        and appends the fitted model to `self.fitted_historic_gp_models`.
+        After processing all historic datasets, it prints a summary message indicating the number of models
+        that have been set up and their types.
+        Returns:
+            None
+        """
 
         for historic_dataset in self.dataset_manager.historic_dataset_list:
 
@@ -131,6 +200,15 @@ class MultiRGPEInitializer(BaseModel):
         
 
     def initialize_single_gp_model(self, historic_dataset):
+        """
+        Initializes a multi-objective Gaussian Process (GP) model using historic data.
+        Args:
+            historic_dataset (dict): A dictionary containing 'input_data' and 'output_data'.
+                - 'input_data' (array-like): The input data for the GP model.
+                - 'output_data' (array-like): The output data for the GP model.
+        Returns:
+            ModelListGP: A list of SingleTaskGP models, one for each objective.
+        """
         
         # Convert input_data and output_data to torch tensors with dtype=torch.float64
         train_X = torch.tensor(historic_dataset['input_data'], dtype=torch.float64)
@@ -153,6 +231,20 @@ class MultiRGPEInitializer(BaseModel):
         return gp_modellist
 
     def compute_rank_weights_objective_wise(self, train_X, train_Y, historic_model_list, n_mc_samples):
+        """
+        Compute rank weights for each objective based on ranking losses.
+        This method computes the rank weights for each objective by evaluating the ranking losses
+        of historic models and the target model. The rank weights indicate the proportion of samples
+        for which each model is the best (i.e., has the minimum ranking loss) for each objective.
+        Args:
+            train_X (torch.Tensor): The training input data.
+            train_Y (torch.Tensor): The training output data.
+            historic_model_list (list): A list of historic models to be evaluated.
+            n_mc_samples (int): The number of Monte Carlo samples to use for ranking loss computation.
+        Returns:
+            torch.Tensor: A tensor of shape (n_objectives, n_models) containing the rank weights for each objective.
+                          n_objectives is the number of objectives, and n_models is the number of models (historic and current model).
+        """
 
         # Initialize an empty list to store ranking losses for all objectives and models
         ranking_losses_all_objectives = []
@@ -207,6 +299,19 @@ class MultiRGPEInitializer(BaseModel):
              
     
     def compute_rank_weights_pareto_dominance(self, train_X, train_Y, historic_model_list, n_mc_samples):
+        """
+        Compute rank weights based on Pareto dominance for a given set of training data and historic models.
+        This method evaluates the performance of historic models and a target model using Monte Carlo samples
+        and computes ranking losses based on Pareto dominance. It then determines the proportion of samples
+        for which each model is the best and returns the rank weights stacked to match the number of objectives.
+        Args:
+            train_X (torch.Tensor): The training input data.
+            train_Y (torch.Tensor): The training output data.
+            historic_model_list (list): A list of historic models to be evaluated.
+            n_mc_samples (int): The number of Monte Carlo samples to be used.
+        Returns:
+            torch.Tensor: A tensor of rank weights stacked to match the number of objectives.
+        """
 
         ranking_losses = []
 
@@ -244,6 +349,15 @@ class MultiRGPEInitializer(BaseModel):
 
 
     def get_target_model_loocv_sample_preds(self, train_X, train_Y, n_mc_samples):
+        """
+        Perform Leave-One-Out Cross-Validation (LOOCV) to get sample predictions for the target model.
+        Args:
+            train_X (torch.Tensor): The input training data of shape (n, input_dim).
+            train_Y (torch.Tensor): The output training data of shape (n, output_dim).
+            n_mc_samples (int): The number of Monte Carlo samples to draw for each prediction.
+        Returns:
+            torch.Tensor: A tensor of shape (n_mc_samples, n, output_dim) containing the LOOCV sample predictions.
+        """
 
         n = train_X.shape[0]  # Number of data points
         d = train_Y.shape[1]  # Dimensionality of the output
@@ -287,6 +401,25 @@ class MultiRGPEInitializer(BaseModel):
         return loocv_preds
     
     def compute_ranking_loss_objective_wise(self, target_f_samples, true_train_Y):
+        """
+        Computes the ranking loss for one objective at a time.
+        This function calculates the ranking loss for one objective at a time and returns a tensor of shape ([n_mc_samples]) 
+        with n_mc_samples elements which is stacked afterwards.
+        Parameters:
+        -----------
+        target_f_samples : torch.Tensor
+            A tensor of shape (n_mc_samples, n_true_Y, d) containing the predicted samples for the target function.
+        true_train_Y : torch.Tensor
+            A tensor of shape (n_true_Y, d) containing the true training values.
+        Returns:
+        --------
+        torch.Tensor
+            A tensor of shape ([n_mc_samples]) containing the ranking loss for each Monte Carlo sample.
+        Raises:
+        -------
+        ValueError
+            If the target_f_samples and true_train_Y do not have the same number of points per objective.
+        """
 
         #this function only calculates the ranking loss for one objective at a time and returns a tensor of shape ([n_mc_samples]) with n_mc_samples elements which is stacked afterwards
 
@@ -326,6 +459,25 @@ class MultiRGPEInitializer(BaseModel):
 
 
     def compute_ranking_loss_pareto_dominance(self, target_f_samples, true_train_Y):
+        """
+        Compute the ranking loss based on Pareto dominance for a set of target function samples.
+        Args:
+            target_f_samples (torch.Tensor): A tensor of shape ([n_mc_samples, n, d]) containing 
+                Monte Carlo samples of the target function values. 
+                - n_mc_samples: Number of Monte Carlo samples.
+                - n: Number of training examples.
+                - d: Number of objectives.
+            true_train_Y (torch.Tensor): A tensor of shape ([n, d]) containing the true training 
+                values.
+                - n: Number of training examples.
+                - d: Number of objectives.
+        Returns:
+            torch.Tensor: A tensor of shape ([n_mc_samples]) containing the ranking loss for each 
+            Monte Carlo sample.
+        Raises:
+            ValueError: If the shape of target_f_samples does not match the shape of true_train_Y 
+            in the second and third dimensions.
+        """
 
         #true_train_Y is a tensor of shape ([n,d]) with n * d elements
 
@@ -379,6 +531,17 @@ class MultiRGPEInitializer(BaseModel):
 
 
     def get_pareto_dominance(self, point_1, point_2):
+        """
+        Determine the Pareto dominance relationship between two points.
+        Parameters:
+        point_1 (numpy.ndarray): The first point in the objective space.
+        point_2 (numpy.ndarray): The second point in the objective space.
+        Returns:
+        int: 
+            1 if point_1 dominates point_2,
+           -1 if point_2 dominates point_1,
+            0 if neither point dominates the other.
+        """
 
         # Check if point_1 dominates point_2
         dominates = (point_1 <= point_2).all() and (point_1 < point_2).any()
@@ -395,6 +558,14 @@ class MultiRGPEInitializer(BaseModel):
         return 0  # Neither point dominates the other
     
     def setup_multiple_rgpe(self, model_list, rank_weights_stacked):
+        """
+        Sets up multiple RGPE (Ranked Gaussian Process Ensemble) models for each objective in the dataset.
+        Args:
+            model_list (list): A list of models, where each model contains multiple single-task Gaussian Process (GP) models.
+            rank_weights_stacked (numpy.ndarray): A 2D array where each row corresponds to the weights for the respective objective.
+        Returns:
+            ModelListGP: A GPyTorch ModelListGP object containing the RGPE models for each objective.
+        """
 
         multi_rgpe_modellist = []
 
@@ -420,6 +591,14 @@ class MultiRGPEInitializer(BaseModel):
 
     
     def train_initially_gp_model(self):
+        """
+        Trains the initial Gaussian Process (GP) model if it is not already set.
+        This method checks if the GP model is set. If the GP model is not set, it raises a ValueError.
+        If the GP model is already set, it prints a message indicating that no training is done because
+        the already trained models on the data were combined for a RGPE (Robust Gaussian Process Ensemble) model.
+        Raises:
+            ValueError: If the GP model is not set.
+        """
 
         if self.gp_model is None:
             raise ValueError("No GP model set. Please run an initiation first!")
@@ -431,6 +610,26 @@ class MultiRGPEInitializer(BaseModel):
         # mll = fit_gpytorch_mll(mll=mll)
 
     def reinitialize_model(self, current_iteration: int):
+        """
+        Reinitializes the Gaussian Process (GP) model for the current iteration.
+        This method performs the following steps:
+        1. Prints the number of data points and the current iteration.
+        2. Initializes a list of SingleTaskGP models for each objective.
+        3. Combines the individual GP models into a ModelListGP.
+        4. Fits the combined model using SumMarginalLogLikelihood.
+        5. Sets the target GP model to the fitted ModelListGP.
+        6. If the number of initial data points is less than 3, assigns equal weights to all models.
+        7. Otherwise, calculates rank weights using either objective-wise or Pareto dominance methods.
+        8. Converts the rank weights to a tensor with dtype=torch.float64.
+        9. Sets the calculated weights.
+        10. Prints the calculated rank weights.
+        11. Combines historic GP models with the current target GP model.
+        12. Sets up the multiple RGPE model using the combined model list and rank weights.
+        13. Sets the GP model to the multiple RGPE model.
+        14. Prints the reinitialization status, number of objectives, and number of data points.
+        Args:
+            current_iteration (int): The current iteration number.
+        """
 
         print(f"Reinitializing model with {self.dataset_manager.initial_dataset.input_data.shape[0]} data points for iteration {current_iteration}.")
 

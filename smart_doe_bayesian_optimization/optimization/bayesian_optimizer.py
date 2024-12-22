@@ -18,6 +18,45 @@ from models.model_initializer.multi_rgpe_initializer import MultiRGPEInitializer
 import numpy as np
 
 class BayesianOptimizer:
+    """
+    BayesianOptimizer class for performing Bayesian optimization with multi-objective models.
+    Attributes:
+        multiobjective_model (BaseModel): The multi-objective model used for optimization.
+        bool_optional_ending_optimization_each_iteration (bool): Flag to optionally end optimization after each iteration.
+        parameter_constraints_equality (Optional[Callable]): Callable for equality parameter constraints.
+        parameter_constraints_inequality (Optional[Callable]): Callable for inequality parameter constraints.
+        parameter_constraints_nonlinear_inequality (Optional[Callable]): Callable for nonlinear inequality parameter constraints.
+        output_constraints (Optional[List[Callable[[torch.Tensor], torch.Tensor]]]): List of callables for output constraints.
+        reference_point (Optional[torch.Tensor]): Reference point for hypervolume calculation.
+        save_file_name (Optional[str]): Name of the file to save optimization results.
+        next_input_setting (Optional[torch.Tensor]): Next input setting for optimization.
+        exit_optimization (bool): Flag to indicate if optimization should be exited.
+        next_observation (Optional[torch.Tensor]): Next observation for optimization.
+        external_input (bool): Flag to indicate if external input is used.
+        gp_visualizer (GP_Visualizer): Visualizer for Gaussian Process.
+        optimization_loop_data_dict (dict): Dictionary to store optimization loop data.
+        results_dict (dict): Dictionary to store results.
+        hypervolume_calculator (Hypervolume): Hypervolume calculator.
+        export_figures (list): List of figures to export.
+    Methods:
+        __init__: Initializes the BayesianOptimizer with the given parameters.
+        calculate_reference_point: Calculates the reference point for hypervolume calculation.
+        update_reference_point: Updates the reference point if a worse point is found.
+        check_end_optimization: Checks if the optimization should be ended based on user input.
+        optimization_iteration: Performs a single iteration of the optimization process.
+        validate_output_constraints: Validates the output constraints.
+        get_next_observation: Gets the next observation based on the next input setting.
+        get_next_manual_observation: Gets the next observation manually from the user.
+        optimization_loop: Runs the optimization loop with the specified parameters.
+        save_iteration_data: Saves the data for the current iteration.
+        calculate_hypervolume: Calculates the hypervolume based on the Pareto points.
+        calculate_diversity_metric: Calculates the diversity metric for the Pareto points.
+        calculate_pareto_points: Calculates the Pareto points from the output data.
+        visualize_pareto_front: Visualizes the Pareto front.
+        visualize_expected_hypervolume_development: Visualizes the expected hypervolume development.
+        visualize_parallel_coordinates_plot: Visualizes the parallel coordinates plot.
+        stopping_criterion: Evaluates the stopping criterion for the optimization.
+    """
 
     def __init__(
         self,
@@ -280,6 +319,24 @@ class BayesianOptimizer:
         print(f"Next observation: {self.next_observation}")  
     
     def get_next_manual_observation(self):
+        """
+        Prompts the user to manually input the output values for the given input point, confirms the inputs,
+        and processes them to generate the next observation for the Bayesian optimization process.
+        The method performs the following steps:
+        1. Retrieves the number of outputs (objectives), maximization flags, and output parameter names from the model's dataset manager.
+        2. Prompts the user to manually input the output values for each objective, with confirmation for each value.
+        3. Summarizes and confirms all input values with the user.
+        4. Converts the confirmed output values into a torch tensor and reshapes it to [1, num_outputs].
+        5. Adjusts the tensor values based on the maximization flags (negates values for objectives that are to be minimized).
+        6. Stores the processed tensor as the next observation.
+        Raises:
+            ValueError: If the user inputs a non-numeric value for an output.
+        Notes:
+            - The method assumes that the user will provide valid numeric inputs when prompted.
+            - The method will repeatedly prompt the user until valid and confirmed inputs are provided.
+        Attributes:
+            next_observation (torch.Tensor): The processed tensor containing the next observation for the Bayesian optimization.
+        """
         
         while True:
             # Gather the number of outputs (objectives) from the model's dataset manager
@@ -354,6 +411,33 @@ class BayesianOptimizer:
     were added to the current Pareto front.
     '''
     def optimization_loop(self, use_stopping_criterion: bool = False, num_max_iterations: int = 10, num_min_iterations: int = 40):
+        """
+        Executes the main optimization loop for Bayesian optimization.
+        Parameters:
+        -----------
+        use_stopping_criterion : bool, optional
+            If True, a stopping criterion based on hypervolume will be used to terminate the optimization early. Default is False.
+        num_max_iterations : int, optional
+            The maximum number of iterations to run the optimization loop. Default is 10.
+        num_min_iterations : int, optional
+            The minimum number of iterations to run before considering the stopping criterion. Default is 40.
+        Raises:
+        -------
+        ValueError
+            If `num_max_iterations` is less than `num_min_iterations`.
+        Notes:
+        ------
+        - The function creates a unique folder for each optimization run to save the results.
+        - Initial hypervolume and diversity metrics are calculated and stored.
+        - If the model is an instance of `MultiRGPEInitializer`, the model weights are saved.
+        - The optimization loop runs for a maximum of `num_max_iterations` iterations or until the stopping criterion is met.
+        - Hypervolume, diversity metrics, and the number of Pareto points are calculated and stored at each iteration.
+        - The reference point is updated every 4 iterations if it is not handed over.
+        - The optimization data is saved after each iteration.
+        - After the loop, the total time taken for the optimization is printed.
+        - Visualization functions for hypervolume development, parallel coordinates plot, and Pareto front are called.
+        - The optimization data is exported to an Excel file in the run folder.
+        """
 
         if num_max_iterations < num_min_iterations:
             raise ValueError("The number of maximum iterations must be greater than or equal to the number of minimum iterations.")
@@ -501,6 +585,17 @@ class BayesianOptimizer:
         print(50*"#")
 
     def save_iteration_data(self, iteration_num: int, run_folder_path: str):
+        """
+        Save the data for a specific iteration of the optimization process.
+        This method creates a folder for the given iteration number within the specified run folder path,
+        ensures the folder exists, and then exports the current optimization loop data, results, and figures
+        to this folder in the specified file format.
+        Args:
+            iteration_num (int): The iteration number for which the data is being saved.
+            run_folder_path (str): The path to the folder where the iteration data should be saved.
+        Returns:
+            None
+        """
         # Create a folder name for the specific iteration
         iteration_folder_name = f"iter_{iteration_num}"
         iteration_folder_path = os.path.join(run_folder_path, iteration_folder_name)
@@ -521,6 +616,15 @@ class BayesianOptimizer:
         print(f"Iteration {iteration_num + 1} data exported to folder: {iteration_folder_path}")
 
     def calculate_hypervolume(self):
+        """
+        Calculate the hypervolume of the Pareto front.
+        This method calculates the hypervolume of the Pareto front using the 
+        hypervolume calculator. It first calculates the Pareto points, sets 
+        the reference point for the hypervolume calculator, and then computes 
+        the hypervolume based on the Pareto points.
+        Returns:
+            float: The calculated hypervolume of the Pareto front.
+        """
 
         self.calculate_pareto_points()
 
@@ -533,6 +637,19 @@ class BayesianOptimizer:
         return hypervolume
     
     def calculate_diversity_metric(self):
+        """
+        Calculate the diversity metric for the Pareto points.
+        The diversity metric is a measure of how spread out the Pareto points are in the objective space.
+        It is calculated based on the distances between consecutive Pareto points along each objective.
+        Returns:
+            delta_value (torch.Tensor): The maximum diversity metric value across all objectives.
+            delta_metric (torch.Tensor): The diversity metric for each objective, shape (d,).
+        Notes:
+            - If there are fewer than 2 Pareto points, the diversity metric cannot be calculated.
+              In this case, delta_value is set to 0 and delta_metric is a zero tensor of shape (d,).
+            - The Pareto points are assumed to be stored in self.results_dict["pareto_points"] as a tensor of shape (n, d),
+              where n is the number of points and d is the number of objectives.
+        """
         # Extract Pareto points, shape is ([n, d]), where n is the number of points and d is the number of objectives 
         pareto_points = self.results_dict["pareto_points"]  # Assuming pareto_points is a tensor of shape (n, d)
 
@@ -577,6 +694,16 @@ class BayesianOptimizer:
         return delta_value, delta_metric
 
     def calculate_pareto_points(self):
+        """
+        Calculate and store the Pareto points from the multiobjective model's output data.
+        This method identifies the non-dominated points (Pareto points) from the output data
+        of the multiobjective model's dataset manager. It then stores these Pareto points in
+        the results dictionary under the key "pareto_points".
+        The method also prints the number of Pareto points found and the total number of points
+        in the output data.
+        Returns:
+            None
+        """
 
         output_data = self.multiobjective_model.dataset_manager.initial_dataset.output_data
 

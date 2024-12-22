@@ -9,6 +9,38 @@ from scipy.stats import qmc
 import pandas as pd
 
 class DataManager:
+    """
+    Manages the loading, validation, and storage of datasets for Bayesian optimization.
+    Attributes:
+        historic_data_path (str): Path to the historic data.
+        historic_data_loader (HistoricDataLoader): Loader for historic data.
+        initial_data_loader (InitialDataLoader): Loader for initial data.
+        dataset_func (Callable): Function to generate the dataset.
+        external_input (bool): Flag indicating if external input is used.
+        variation_factor (float): Factor for variation in the dataset.
+        input_dim (int): Dimension of the input data.
+        output_dim (int): Dimension of the output data.
+        initial_dataset (Dataset): The initial dataset.
+        input_parameter_name (List[str]): Names of the input parameters.
+        output_parameter_name (List[str]): Names of the output parameters.
+        meta_data_dict (dict): Dictionary containing meta data.
+        historic_modelinfo_list (List[dict]): List of historic model information.
+        historic_datasetinfo_list (List[dict]): List of historic dataset information.
+        historic_dataset_list (List[Dataset]): List of historic datasets.
+        dtype (torch.dtype): Data type for tensors.
+        maximization_flags (List[bool]): Flags indicating which output dimensions should be maximized.
+    Methods:
+        load_initial_dataset(num_datapoints, bounds, maximization_flags, input_parameter_name, output_parameter_name, meta_data_dict, sampling_method="grid", noise_level=0.0, identifier=None):
+            Loads the initial dataset based on the provided parameters.
+        load_historic_data():
+            Loads historic data from the provided path and validates it against the initial dataset.
+        add_point_to_initial_dataset(point):
+            Adds a single point to the initial dataset.
+        set_check_input_output_dim(input_dim, output_dim):
+            Checks and sets the input and output dimensions.
+        set_check_maximization_flags(dataset):
+            Checks and sets the maximization flags.
+    """
 
     def __init__(self, external_input: bool, dataset_func: Callable = None, variation_factor: float = None, historic_data_path: str = None, dtype: torch.dtype = torch.float64):
         self.historic_data_path = historic_data_path
@@ -243,7 +275,43 @@ class InitialDataLoader:
     
 
     def create_inital_dataset_manually(self, num_datapoints:int, bounds: List[tuple], maximization_flags: List[bool], input_parameter_name: List[str], output_parameter_name: List[str], meta_data_dict: dict, sampling_method: str, identifier: int=None):
+        """
+        Create an initial dataset manually using either Latin Hypercube Sampling (LHS) or loading from a file.
+        Parameters:
+        -----------
+        num_datapoints : int
+            The number of data points to generate or load.
+        bounds : List[tuple]
+            A list of tuples specifying the lower and upper bounds for each input dimension.
+        maximization_flags : List[bool]
+            A list of boolean flags indicating whether each output parameter should be maximized.
+        input_parameter_name : List[str]
+            A list of names for the input parameters.
+        output_parameter_name : List[str]
+            A list of names for the output parameters.
+        meta_data_dict : dict
+            A dictionary containing metadata for the dataset.
+        sampling_method : str
+            The method to use for sampling. Must be either 'LHS' or 'from_file'.
+        identifier : int, optional
+            An optional identifier for the dataset.
+        Returns:
+        --------
+        initial_dataset : Dataset
+            The created initial dataset.
+        Raises:
+        -------
+        ValueError
+            If the sampling method is not 'LHS' or 'from_file'.
+            If the number of datapoints in the Excel file does not match the provided number of datapoints.
+            If the number of input dimensions in the Excel file does not match the provided number of input dimensions.
+            If the number of output dimensions in the Excel file does not match the provided number of output dimensions.
+        FileNotFoundError
+            If no Excel file is found in the specified directory.
+        """
         
+        
+
         #check that the sampling method is valid
         if sampling_method not in ['LHS', 'from_file']:
             raise ValueError("Sampling method must be'LHS' or 'from_file'. Grid and random are not supported for manual input here!")

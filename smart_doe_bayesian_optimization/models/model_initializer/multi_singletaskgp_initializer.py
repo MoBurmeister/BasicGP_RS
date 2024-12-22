@@ -16,6 +16,38 @@ from torch.optim import Adam
 import numpy as np
 
 class MultiSingletaskGPInitializer(BaseModel):
+    """
+    A class to initialize and manage multiple single-task Gaussian Process (GP) models with optional transfer learning.
+    Attributes:
+        dataset (DataManager): The dataset manager containing initial and historic datasets.
+        transfer_learning_method (Literal["no_transfer", "initial_transfer", "transfer_and_retrain"]): The method for transfer learning.
+        bool_transfer_averaging (bool): If True, hyperparameters are averaged over all historic datasets.
+        lr (float): Learning rate for training.
+        step_limit (int): Step limit for training.
+    Methods:
+        initially_setup_model():
+            Sets up the initial GP model. This method should be run only once.
+        setup_model():
+            Sets up the GP model list based on the initial dataset and applies transfer learning if specified.
+        print_model_parameter(model_state_dict):
+            Prints the parameters of the GP model for each objective.
+        setup_multiple_gp_models():
+            Sets up multiple GP models for each objective in the initial dataset.
+        train_initially_gp_model():
+            Trains the GP model initially after setup.
+        reinitialize_model(current_iteration):
+            Reinitializes the GP model after new data has been added in each optimization iteration.
+        adjust_step_and_lr(current_iteration, lr, step_limit):
+            Adjusts the learning rate and step limit based on the current iteration.
+        update_old_statedict(old_state_dict):
+            Updates the old state dictionary with averaged hyperparameters from historic datasets.
+        get_weights_for_transfer():
+            Returns the weights for transfer learning based on dataset meta-feature similarity or averaging.
+        compute_prior_means_covar_list():
+            Computes the prior means and covariance lists for the initial setup from historic datasets.
+        extract_mean_covar_from_list(singletaskgp_list_all_tasks):
+            Extracts and aggregates mean and covariance modules from a list of single-task GP models.
+    """
     def __init__(self, dataset: DataManager, transfer_learning_method: Literal["no_transfer", "initial_transfer", "transfer_and_retrain"], bool_transfer_averaging: bool = True):
         super().__init__(dataset)
         self.gp_model = None
@@ -43,6 +75,22 @@ class MultiSingletaskGPInitializer(BaseModel):
         
     
     def setup_model(self):
+        """
+        Sets up the Gaussian Process (GP) models for the given dataset.
+        This method initializes a list of SingleTaskGP models based on the initial dataset provided by the dataset manager.
+        If the initial dataset has no data points, no input or output transformations are applied. Otherwise, the input data
+        is normalized and the output data is standardized.
+        The method also handles transfer learning if specified. If transfer learning is enabled and historic datasets are 
+        available, the state dictionary of the initial GP model is updated with parameters from the historic datasets. 
+        If no historic datasets are found and transfer learning is required, a ValueError is raised.
+        The final GP model list is stored in the `gp_model` attribute of the class.
+        Raises:
+            ValueError: If transfer learning is enabled but no historic datasets are found.
+        Prints:
+            - The number of historic datasets found (if transfer learning is enabled).
+            - The parameters of the initial GP model before and after updating (if transfer learning is enabled).
+            - The parameters of the initial GP model if no transfer learning is applied.
+        """
 
         gp_model_list = []
 
@@ -108,6 +156,14 @@ class MultiSingletaskGPInitializer(BaseModel):
             print(50 * "-")
 
     def setup_multiple_gp_models(self):
+        """
+        Sets up multiple Gaussian Process (GP) models for each objective in the dataset.
+        This method initializes a list of SingleTaskGP models, one for each objective in the dataset.
+        Each GP model is trained on the input data and the corresponding output data for that objective.
+        The input data is normalized, and the output data is standardized.
+        Returns:
+            ModelListGP: A ModelListGP object containing all the initialized SingleTaskGP models.
+        """
         gp_model_list = []
         for objective in range(self.dataset_manager.initial_dataset.output_dim):        
             gp_model = SingleTaskGP(train_X=self.dataset_manager.initial_dataset.input_data, 
@@ -122,6 +178,21 @@ class MultiSingletaskGPInitializer(BaseModel):
         return gp_modellist
 
     def train_initially_gp_model(self):
+        """
+        Trains the Gaussian Process (GP) model initially based on the specified transfer learning method.
+        This method performs the initial training of the GP model after its setup. Depending on the 
+        transfer learning method specified, it either trains the model on the initial dataset or 
+        uses historic data for transfer learning.
+        Raises:
+            ValueError: If no GP model is set.
+        Transfer Learning Methods:
+            - "no_transfer": No historic data is used. The model is trained on the initial dataset 
+              and the Marginal Log Likelihood (MLL) is maximized.
+            - "initial_transfer": Historic data is used. The mean and covariance module are fixed 
+              initially and will be retrained on new data without maximizing the MLL.
+            - "transfer_and_retrain": Similar to "initial_transfer", historic data is used and the 
+              model will be retrained on new data without maximizing the MLL.
+        """
         #just first initial training after the setup of the model 
 
         if self.gp_model is None:
@@ -138,6 +209,18 @@ class MultiSingletaskGPInitializer(BaseModel):
             print(f"Historic data is available. Mean and CovModule are taken and fixed right now for initial setup. Will be retrained on new available data. No maximization of MarginalLogLikelihood.")
         
     def reinitialize_model(self, current_iteration: int):
+        """
+        Reinitializes the model after new data has been added following each optimization iteration.
+        Parameters:
+        current_iteration (int): The current iteration number of the optimization process.
+        Raises:
+        ValueError: If no historic data is available and transfer_learning_method is not set to 'no_transfer'.
+        The method performs the following steps based on the transfer_learning_method:
+        - 'no_transfer': Sets up and trains a new model using only the current dataset.
+        - 'initial_transfer': Initializes the model with historic parameters without retraining.
+        - 'transfer_and_retrain': Initializes the model with historic parameters and partially retrains it on new data.
+        The method also adjusts the learning rate and step limit based on the current iteration when retraining.
+        """
         #function to reinitialize the model after new data has been added after each optimization iteration!
         #order: first setup model with data new added data in dataset, then do training
 
@@ -212,6 +295,17 @@ class MultiSingletaskGPInitializer(BaseModel):
             self.print_model_parameter(self.gp_model.state_dict())
             
     def adjust_step_and_lr(self, current_iteration: int, lr: float, step_limit: int):
+        """
+        Adjusts the learning rate and step limit based on the current iteration.
+        This function doubles the learning rate and step limit every 10 iterations.
+        If the current iteration is not a multiple of 10, the learning rate and step limit remain unchanged.
+        Args:
+            current_iteration (int): The current iteration number.
+            lr (float): The current learning rate.
+            step_limit (int): The current step limit.
+        Returns:
+            tuple: A tuple containing the new learning rate and new step limit.
+        """
         if current_iteration > 0 and current_iteration % 10 == 0:
             new_lr = lr * 2
             new_step_limit = step_limit * 2
@@ -223,6 +317,22 @@ class MultiSingletaskGPInitializer(BaseModel):
         return new_lr, new_step_limit
 
     def update_old_statedict(self, old_state_dict: dict):
+        """
+        Update the old state dictionary with weighted averages of hyperparameters from historic models.
+        Args:
+            old_state_dict (dict): The state dictionary to be updated.
+        Raises:
+            ValueError: If the number of weights does not match the number of objectives.
+        Returns:
+            dict: The updated state dictionary with averaged hyperparameters.
+        This method performs the following steps:
+        1. Retrieves normalized weights for transfer learning.
+        2. Initializes accumulators for each hyperparameter per objective.
+        3. Iterates over historic model state dictionaries and extracts weighted hyperparameters.
+        4. Computes weighted averages for each hyperparameter per objective.
+        5. Prints the averaged hyperparameters for each objective.
+        6. Updates the old state dictionary with the averaged values for each objective.
+        """
 
         # Get the normalized weights
         weights = self.get_weights_for_transfer()
@@ -270,6 +380,16 @@ class MultiSingletaskGPInitializer(BaseModel):
         return old_state_dict
     
     def get_weights_for_transfer(self):
+        """
+        Calculate and return weights for transfer learning based on the specified method.
+        This method calculates weights for transfer learning either by averaging or by 
+        using dataset meta-feature similarity via Euclidean distance.
+        Returns:
+            list: A list of weights for each historic dataset.
+        Raises:
+            ValueError: If meta-features are missing in any historic dataset or if 
+                        meta-feature keys are missing in any historic dataset.
+        """
 
         #this should return a number of weights, according to which the hyperparameters are weighted for the transfer learning
         # Number of datasets (or historic models)

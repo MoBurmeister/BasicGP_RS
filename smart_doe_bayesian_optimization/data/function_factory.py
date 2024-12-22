@@ -25,7 +25,7 @@ This also holds true for the output, it needs to be in the shape of ([n, d])
 '''
 
 class FunctionFactory:
-
+    
     def __init__(self, variation_factor=0.0):
         self.variation_factor = variation_factor
 

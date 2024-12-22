@@ -10,6 +10,8 @@ from models.model_initializer.multi_singletaskgp_initializer import MultiSinglet
 
 
 def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, results_dict: dict, fig_list,  folder_path: str, folder_name: str, file_format: str = "xlsx"):
+    
+    
     # Check for the correct file format
     if file_format != "xlsx":
         raise ValueError("Currently, only XLSX format is supported.")
@@ -133,6 +135,20 @@ def export_everything(multiobjective_model: BaseModel, optimization_dict: dict, 
     print(f"All figures saved to {full_folder_path}")
 
 def export_only_in_out_data(input_data: torch.Tensor, output_data: torch.Tensor, folder_path: str, folder_name: str):
+    """
+    Exports input and output data to an Excel file.
+    This function takes input and output data in the form of PyTorch tensors,
+    converts them to pandas DataFrames, and saves them to an Excel file with
+    separate sheets for input and output data. The Excel file is saved in a
+    specified folder, which is created if it does not already exist.
+    Args:
+        input_data (torch.Tensor): The input data tensor of shape (n, d).
+        output_data (torch.Tensor): The output data tensor of shape (n, d).
+        folder_path (str): The path to the folder where the Excel file will be saved.
+        folder_name (str): The name of the folder where the Excel file will be saved.
+    Returns:
+        None
+    """
 
     # Create the folder if it doesn't exist
     full_folder_path = os.path.join(folder_path, folder_name)

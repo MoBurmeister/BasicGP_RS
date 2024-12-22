@@ -9,6 +9,25 @@ import pandas as pd
 
 
 class GP_Visualizer:
+    """
+    GP_Visualizer is a class that provides static methods for visualizing various aspects of a multiobjective Gaussian Process (GP) model.
+    Methods:
+        visualize_pareto_front_scatter(multiobjective_model: BaseModel, results_dict: Dict):
+            Visualizes the Pareto front of a multiobjective model with scatter plots for each pair of objectives.
+                multiobjective_model (BaseModel): The multiobjective model to visualize.
+                results_dict (Dict): A dictionary containing the results, including Pareto points.
+            Returns:
+                fig (Figure): The matplotlib figure object containing the scatter plots.
+        visualize_hypervolume_improvement(optimization_data_dict: Dict):
+            Returns:
+                fig (Figure): The matplotlib figure object containing the hypervolume improvement plot.
+        visualize_parallel_coordinates_plot(multiobjective_model: BaseModel, results_dict: Dict):
+            Visualizes the parallel coordinates plot for the input and output dimensions of the multiobjective model.
+                multiobjective_model (BaseModel): The multiobjective model to visualize.
+                results_dict (Dict): A dictionary containing the results, including Pareto points.
+            Returns:
+                fig (Figure): The matplotlib figure object containing the parallel coordinates plots.
+    """
 
     @staticmethod
     def visualize_pareto_front_scatter(multiobjective_model: BaseModel, results_dict: Dict):
@@ -87,6 +106,17 @@ class GP_Visualizer:
         
     @staticmethod
     def visualize_parallel_coordinates_plot(multiobjective_model: BaseModel, results_dict: Dict):
+        """
+        Visualizes a parallel coordinates plot for the given multi-objective model and results.
+        Parameters:
+        multiobjective_model (BaseModel): The multi-objective model containing the dataset manager.
+        results_dict (Dict): A dictionary containing the results, including "pareto_points".
+        Returns:
+        matplotlib.figure.Figure: The figure object containing the parallel coordinates plot.
+        The function extracts the input and output data from the multi-objective model's dataset manager,
+        and creates subplots for each output dimension. It then combines the input data with each output
+        dimension and plots the parallel coordinates for each combined data point.
+        """
         # Extract necessary data
         input_dim = multiobjective_model.dataset_manager.initial_dataset.input_dim # int
         pareto_points = results_dict["pareto_points"]  # Tensor with shape ([n,d])

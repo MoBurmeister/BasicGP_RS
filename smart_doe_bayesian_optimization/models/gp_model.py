@@ -30,6 +30,13 @@ tensor([[  0,  10, 100],[  6,  20, 200]]) for original input [(0, 6), (10, 20), 
 '''
 
 class BaseModel(ABC):
+    """
+    BaseModel is an abstract base class for Gaussian Process models.
+    Attributes:
+        dataset_manager (DataManager): An instance of DataManager that handles the dataset.
+    Methods:
+        train_initially_gp_model(): Abstract method that should be implemented by subclasses to train the initial Gaussian Process model.
+    """
     def __init__(self, dataset_manager: DataManager):
         self.dataset_manager = dataset_manager
        

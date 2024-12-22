@@ -9,6 +9,22 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from botorch.fit import fit_gpytorch_mll
 
 class MultiMultitaskInitializer(BaseModel):
+    """
+    MultiMultitaskInitializer is a class that initializes and manages a multi-task Gaussian Process (GP) model
+    for Bayesian optimization. It extends the BaseModel class and requires a DataManager instance for initialization.
+    Attributes:
+        gp_model (ModelList): The multi-task GP model.
+        multitaskdatasetmanager (MultiTaskDatasetManager): Manages the datasets for multi-task learning.
+    Methods:
+        __init__(dataset_manager: DataManager):
+            Initializes the MultiMultitaskInitializer with the given dataset manager.
+        initially_setup_model():
+            Sets up the initial multi-task GP model using the provided datasets and transformations.
+        train_initially_gp_model():
+            Trains the initially set up GP model using exact marginal log likelihood.
+        reinitialize_model(current_iteration: int):
+            Reinitializes and retrains the GP model with the current dataset for the given iteration.
+    """
     def __init__(self, dataset_manager: DataManager):
         super().__init__(dataset_manager)
 
@@ -20,6 +36,21 @@ class MultiMultitaskInitializer(BaseModel):
 
     
     def initially_setup_model(self):
+        """
+        Initializes the MultiMultitaskInitializer model.
+        This method sets up the MultiMultitaskInitializer model using the historic datasets and the initial dataset provided by the dataset manager. It performs the following steps:
+        1. Checks if there are any historic datasets available. Raises a ValueError if none are found.
+        2. Prints the number of historic datasets.
+        3. Checks if the initial dataset has at least one output dimension. Raises a ValueError if none are found.
+        4. Initializes the input and output transformations.
+        5. Creates a list of MultiTaskGP models, one for each objective in the initial dataset.
+        6. Combines the individual multitask models into a ModelList.
+        7. Assigns the ModelList to the `gp_model` attribute of the class.
+        8. Prints a success message indicating the number of multitask models initialized.
+        Raises:
+            ValueError: If no historic datasets are found.
+            ValueError: If no output dimension is found in the initial dataset.
+        """
 
         if not self.dataset_manager.historic_dataset_list:
             raise ValueError("No historic datasets found. Please provide at least one historic dataset for the MultiMultitaskInitializer!")
@@ -57,6 +88,13 @@ class MultiMultitaskInitializer(BaseModel):
         print(f"MultiMultitaskInitializer model successfully initialized. Number of multitask models: {self.gp_model.num_outputs} for {self.dataset_manager.initial_dataset.output_dim} objectives.")
 
     def train_initially_gp_model(self):
+        """
+        Trains the Gaussian Process (GP) model initially.
+        This method trains the marginal log likelihood (MLL) of each single multitask model
+        within the GP model individually. If no GP model is set, it raises a ValueError.
+        Raises:
+            ValueError: If no GP model is set.
+        """
 
         if self.gp_model is None:
             raise ValueError("No GP model set. Please run an initiation first!")
@@ -71,6 +109,21 @@ class MultiMultitaskInitializer(BaseModel):
         print("MultiMultitaskInitializer model successfully trained.")
 
     def reinitialize_model(self, current_iteration: int):
+        """
+        Reinitializes the Gaussian Process (GP) model with the current dataset and retrains it.
+        This method performs the following steps:
+        1. Prints the number of data points being used for the current iteration.
+        2. Initializes a list to store multitask models.
+        3. Applies input and output transformations.
+        4. Iterates over each objective in the dataset to create and append a MultiTaskGP model to the list.
+        5. Combines the multitask models into a ModelList.
+        6. Assigns the ModelList to the gp_model attribute.
+        7. Fits the GP models using Exact Marginal Log Likelihood (MLL).
+        8. Prints the shape of input and output data points for each multitask model.
+        9. Prints a success message indicating the model has been reinitialized and retrained.
+        Args:
+            current_iteration (int): The current iteration number for which the model is being reinitialized.
+        """
 
         print(f"Reinitializing model with {self.dataset_manager.initial_dataset.input_data.shape[0]} data points for iteration {current_iteration}.")
 
